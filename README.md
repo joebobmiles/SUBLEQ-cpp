@@ -15,3 +15,8 @@ You need the following to build this project:
 To run the build on a Windows machine, make sure you have Visual Studio
 devtools in your system path and run the build script found in the scripts
 folder.
+
+# References
+
+Mazonka O, Kolodin A. 2011. _A simple multi-processor computer based on
+subleq_.
