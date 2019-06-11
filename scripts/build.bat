@@ -13,5 +13,5 @@ if not exist build\ (
 )
 
 pushd build\
-clang-cl /Zi ..\src\main.cpp /o subleq.exe
+clang-cl /Zi ..\src\subleq.cpp /o subleq.exe
 popd
