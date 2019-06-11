@@ -9,19 +9,31 @@
 
 // C standard libraries.
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 
 // @NOTE[joe] Z is used as a symbolic value for the address that stores 0.
 #define Z 0
 
 int main(void)
 {
-    int Program[] = {
-        // BEGIN Instructions.
-        6, 7, -1,
-        0, 0, -1, // End of program tryptich.
-        // BEGIN Data.
-        1, -1, 0
-    };
+    FILE *Binary = fopen("data/binary.x", "r");
+
+    // Discover binary size.
+    fseek(Binary, 0, SEEK_END);
+    long Size = ftell(Binary);
+    rewind(Binary);
+
+    // FIXME[joe] Bad practice, but I'm pretty sure Size is in bytes.
+    // NOTE[joe] We may not need to malloc this memory...
+    int *Program = (int *)malloc(Size);
+    assert(Program != 0);
+
+    // TODO[joe] Abort if we haven't read the bytes we are looking for?
+    fread(Program,
+          sizeof(int),
+          Size / sizeof(int),
+          Binary);
 
     int ProgramCounter = 0;
 
