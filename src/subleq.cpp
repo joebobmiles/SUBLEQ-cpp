@@ -12,12 +12,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
-// @NOTE[joe] Z is used as a symbolic value for the address that stores 0.
-#define Z 0
-
-int main(void)
+int main(int argc, char** argv)
 {
-    FILE *Binary = fopen("data/binary.x", "r");
+    FILE *Binary = fopen(argv[1], "r");
+    assert(Binary != 0);
 
     // Discover binary size.
     fseek(Binary, 0, SEEK_END);
@@ -55,7 +53,7 @@ int main(void)
         printf("%d\n", *B);
     }
     // If we read a negative offset for our next offset, the program ends.
-    while (ProgramCounter > 0);
+    while (ProgramCounter >= 0);
 
     return 0;
 }
