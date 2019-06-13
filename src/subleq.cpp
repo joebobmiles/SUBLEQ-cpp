@@ -8,30 +8,25 @@
  */
 
 // C standard libraries.
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cassert>
+#include <fstream>
 
 int main(int argc, char** argv)
 {
-    FILE *Binary = fopen(argv[1], "r");
-    assert(Binary != 0);
+    std::ifstream BinaryFile (argv[1]);
+    assert(BinaryFile);
 
     // Discover binary size.
-    fseek(Binary, 0, SEEK_END);
-    long Size = ftell(Binary);
-    rewind(Binary);
+    BinaryFile.seekg(0, std::ofstream::end);
+    long FileSize = BinaryFile.tellg();
+    BinaryFile.seekg(0, std::ofstream::beg);
 
-    // FIXME[joe] Bad practice, but I'm pretty sure Size is in bytes.
-    // NOTE[joe] We may not need to malloc this memory...
-    int *Program = (int *)malloc(Size);
-    assert(Program != 0);
+    int *Program = new int[FileSize];
 
     // TODO[joe] Abort if we haven't read the bytes we are looking for?
-    fread(Program,
-          sizeof(int),
-          Size / sizeof(int),
-          Binary);
+    BinaryFile.read((char *)Program, FileSize);
 
     int ProgramCounter = 0;
 

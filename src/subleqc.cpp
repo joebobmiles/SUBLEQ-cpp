@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
+#include <fstream>
 
 template <typename T>
 struct buffer {
@@ -42,28 +43,27 @@ void Append(buffer<T> *Buffer, const T Value)
 
 int main(int argc, char** argv)
 {
-    FILE *Source = fopen(argv[1], "r");
-    assert(Source != 0);
+    // RANT[joe] I severely disapprove of having to stoop to C++ stdlib. But if
+    // clang stops yelling at me, I guess I'll just have to suck it up.
+    std::ifstream SourceFile (argv[1]);
+    assert(SourceFile);
 
-    fseek(Source, 0, SEEK_END);
-    long SourceSize = ftell(Source);
-    rewind(Source);
+    SourceFile.seekg(0, SourceFile.end);
+    long SourceFileSize = SourceFile.tellg();
+    SourceFile.seekg(0, SourceFile.beg);
 
-    // NOTE[joe] We may not need to malloc this memory...
-    char *RawProgram = (char *)malloc(sizeof(char) * (SourceSize + 1));
-    assert(RawProgram != 0);
+    char *RawProgram = new char[SourceFileSize + 1];
 
-    fread((void *)RawProgram,
-          sizeof(char),
-          SourceSize / sizeof(char),
-          Source);
+    SourceFile.read(RawProgram, SourceFileSize);
 
-    fclose(Source);
+    SourceFile.close();
 
     // Ensure that our raw program input is a well-formed c-string.
-    RawProgram[SourceSize + 1] = '\0';
+    RawProgram[SourceFileSize + 1] = '\0';
 
 
+    // NOTE[joe] These can be replaced with std::vectors.
+    // But I don't want too because I'm a stubborn bastard.
     buffer<char> Buffer = { };
     buffer<int> Program = { };
 
@@ -82,16 +82,20 @@ int main(int argc, char** argv)
         }
     }
 
+    // NOTE[joe] This isn't necissary, but habits start somewhere.
+    delete[] RawProgram;
 
-    FILE *Binary = fopen(argv[2], "w");
-    assert(Binary != 0);
 
-    fwrite((void *)Program.Data,
-           sizeof(int),
-           Program.Length,
-           Binary);
+    std::ofstream BinaryFile (argv[2]);
+    assert(BinaryFile);
 
-    fclose(Binary);
+    // RANT[joe] Unlike using fwrite, std::fstream::write() disallows writing
+    // arbitrary data to a file. It _must_ be characters. This is a nit-pick,
+    // but an unnecissary annoyance none-the-less.
+    BinaryFile.write((char *) Program.Data,
+                     sizeof(int) * Program.Length);
+
+    BinaryFile.close();
 
     return 0;
 }
