@@ -1,5 +1,5 @@
 /**
- * @file main.cpp
+ * @file subleq.cpp
  * @author Joseph Miles <josephmiles2015@gmail.com>
  * @date 2019-06-10
  *
@@ -15,18 +15,20 @@
 
 int main(int argc, char** argv)
 {
-    std::ifstream BinaryFile (argv[1]);
+    std::ifstream BinaryFile (argv[1],
+                              std::ifstream::out | std::ifstream::binary);
     assert(BinaryFile);
 
     // Discover binary size.
-    BinaryFile.seekg(0, std::ofstream::end);
+    BinaryFile.seekg(0, BinaryFile.end);
     long FileSize = BinaryFile.tellg();
-    BinaryFile.seekg(0, std::ofstream::beg);
+    BinaryFile.seekg(0, BinaryFile.beg);
 
     int *Program = new int[FileSize];
 
     // TODO[joe] Abort if we haven't read the bytes we are looking for?
     BinaryFile.read((char *)Program, FileSize);
+
 
     int ProgramCounter = 0;
 

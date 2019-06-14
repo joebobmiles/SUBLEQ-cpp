@@ -33,7 +33,7 @@ void Append(buffer<T> *Buffer, const T Value)
     {
         Buffer->_Size *= 2;
         Buffer->Data = (T *)realloc(Buffer->Data,
-                                    sizeof(T) * Buffer->_Size);
+                                    sizeof(T) * (Buffer->_Size + 1));
     }
 
     Buffer->Data[Buffer->Length++] = Value;
@@ -82,11 +82,8 @@ int main(int argc, char** argv)
         }
     }
 
-    // NOTE[joe] This isn't necissary, but habits start somewhere.
-    delete[] RawProgram;
-
-
-    std::ofstream BinaryFile (argv[2]);
+    std::ofstream BinaryFile (argv[2],
+                              std::ifstream::in | std::ifstream::binary);
     assert(BinaryFile);
 
     // RANT[joe] Unlike using fwrite, std::fstream::write() disallows writing
