@@ -78,18 +78,35 @@ int main(int argc, char** argv)
     buffer<char> Buffer = { };
     buffer<int> Program = { };
 
-    char Current = '\0';
-    while ((Current = *RawProgram++) != '\0')
+    char CurrentChar = '\0';
+    int  CurrentCell = 0;
+
+    while ((CurrentChar = *RawProgram++) != '\0')
     {
-        if (Current == ' ' || Current == '\n')
+        if ((CurrentChar == ' ' || CurrentChar == '\n') &&
+            Buffer.Length != 0)
         {
             Append<int>(&Program, atoi(Buffer.Data));
 
             Empty<char>(&Buffer);
+
+            CurrentCell++;
+        }
+        // If we read a '?' and there is nothing in the buffer, we've found a
+        // "next address" operator.
+        else if (CurrentChar == '?' && Buffer.Length == 0)
+        {
+            Append<int>(&Program, CurrentCell + 1);
+            
+            // TODO[joe] If this is the last cell, that'll mean the program
+            // will go out of bounds. This could be labelled as "undefined
+            // behavior", but I think we can catch this and thrown an error
+            // during compilation.
+            CurrentCell++;
         }
         else
         {
-            Append<char>(&Buffer, Current);
+            Append<char>(&Buffer, CurrentChar);
         }
     }
 
