@@ -1,5 +1,5 @@
 /**
- * @file subleqc.exe
+ * @file subleqc.cpp
  * @author Joseph Miles <josephmiles2015@gmail.com>
  * @date 2019-06-10
  *
@@ -40,6 +40,17 @@ void Append(buffer<T> *Buffer, const T Value)
     Buffer->Data[Buffer->Length] = (T) 0;
 }
 
+template <typename T>
+static inline
+void Empty(buffer<T> *Buffer)
+{
+    Buffer->_Size = 0;
+    Buffer->Length = 0;
+
+    free(Buffer->Data);
+    Buffer->Data = 0;
+}
+
 
 int main(int argc, char** argv)
 {
@@ -74,13 +85,14 @@ int main(int argc, char** argv)
         {
             Append<int>(&Program, atoi(Buffer.Data));
 
-            Buffer = { };
+            Empty<char>(&Buffer);
         }
         else
         {
             Append<char>(&Buffer, Current);
         }
     }
+
 
     std::ofstream BinaryFile (argv[2],
                               std::ifstream::in | std::ifstream::binary);
