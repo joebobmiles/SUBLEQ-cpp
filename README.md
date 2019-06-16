@@ -18,5 +18,5 @@ folder.
 
 # References
 
-Mazonka O, Kolodin A. 2011. _A simple multi-processor computer based on
-subleq_.
+Mazonka O, Kolodin A. 2011. [_A simple multi-processor computer based on
+subleq_](https://arxiv.org/ftp/arxiv/papers/1106/1106.2593.pdf).
