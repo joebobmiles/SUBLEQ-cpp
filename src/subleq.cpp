@@ -13,51 +13,100 @@
 #include <fstream>
 
 
+#define Deref(OFFSET)    *(Program + OFFSET)
+#define IsStdout(OFFSET) (OFFSET == -1)
+
+
+enum status {
+    NORMAL,
+    NO_INPUT,
+    NO_SUCH_FILE,
+    OFFSET_OUT_OF_BOUNDS,
+    UNKNOWN
+};
+
+
+static
+bool InBounds(int Offset, long Extent)
+{
+    if (IsStdout(Offset))
+        return true;
+
+    else if (0 <= Offset && Offset < Extent)
+        return true;
+
+    else
+        return false;
+}
+
+
 int main(int argc, char** argv)
 {
+    if (argc == 1)
+    {
+        printf("No input binary given, exiting.\n");
+        return NO_INPUT;
+    }
+
+
     std::ifstream BinaryFile (argv[1],
                               std::ifstream::out | std::ifstream::binary);
-    // TODO[joe] Repor that we weren't given an input file.
-    assert(BinaryFile);
+    if (!BinaryFile)
+    {
+        printf("Failed to open binary \"%s\", exiting.\n", argv[1]);
+        return NO_SUCH_FILE; 
+    }
 
     // Discover binary size.
     BinaryFile.seekg(0, BinaryFile.end);
-    long FileSize = BinaryFile.tellg();
+    long ProgramLength = BinaryFile.tellg();
     BinaryFile.seekg(0, BinaryFile.beg);
 
-    int *Program = new int[FileSize];
+    int *Program = new int[ProgramLength];
 
     // TODO[joe] Abort if we haven't read the bytes we are looking for?
-    BinaryFile.read((char *)Program, FileSize);
+    BinaryFile.read((char *)Program, ProgramLength);
 
 
-    int ProgramCounter = 0;
+    int ProgramCounter, A, B, C = 0;
 
-    // TODO[joe] Implement bounds checking so that the user can't access memory
-    // outside the program.
     do
     {
-        int *A = Program + Program[ProgramCounter++];
-        int *B = Program + Program[ProgramCounter++];
-        // @NOTE[joe] While A, B, and C are technically addresses, C is fairly
-        // useless as a pointer. This is mostly because it's used to control
-        // the program counter and not used to do math. Because the program
-        // counter is just an offset into the program and C is supposed to be
-        // the same, skipping the translation of C into a true pointer is
-        // natural.
-        int  C = Program[ProgramCounter++];
+        A = Program[ProgramCounter++];
+        B = Program[ProgramCounter++];
+        C = Program[ProgramCounter++];
+
+        if (!InBounds(A, ProgramLength) ||
+            !InBounds(B, ProgramLength) ||
+            !InBounds(C, ProgramLength))
+        {
+            break;
+        }
 
         // The SUBLEQ operation.
-        if ((*B = *A - *B) <= 0) ProgramCounter = C;
+        if ((Deref(B) = Deref(A) - Deref(B)) <= 0)
+            ProgramCounter = C;
 
-        printf("%d\n", *B);
+        printf("%d\n", Deref(B));
     }
-    // If we read a negative offset for our next offset, the program ends.
-    while (ProgramCounter >= 0);
+    while (InBounds(ProgramCounter, ProgramLength) &&
+           !IsStdout(ProgramCounter));
 
-    // TODO[joe] Perform error reporting here? If we have an out of bounds PC,
-    // we more than likely will break out of the execution loop and wind up
-    // here.
 
-    return 0;
+    if (!InBounds(ProgramCounter, ProgramLength))
+    {
+        printf("Program counter is out-of-bounds, exiting.\n");
+        return OFFSET_OUT_OF_BOUNDS;
+    }
+    else if (!InBounds(A, ProgramLength) ||
+             !InBounds(B, ProgramLength) ||
+             !InBounds(C, ProgramLength))
+    {
+        printf("Attempted to access an out-of-bounds offset, exiting.\n");
+        return OFFSET_OUT_OF_BOUNDS;
+    }
+    else
+    {
+        return NORMAL;
+    }
 }
