@@ -11,5 +11,5 @@ rem
 
 pushd build
 subleqc.exe ..\data\test.sq ..\data\test.x
-rem subleq.exe ..\data\test.x
+subleq.exe ..\data\test.x
 popd

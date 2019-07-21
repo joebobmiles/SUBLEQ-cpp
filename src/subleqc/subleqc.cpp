@@ -20,8 +20,18 @@ struct buffer {
     unsigned int _Size;
 };
 
+enum token_type {
+    NONE,
+    NUMBER,
+    QMARK,
+    COMMA,
+    EOL
+};
+
 struct token {
-    char Text[32];
+    token_type Type;
+    // To quote a friend, 32B should be more than enough for anyone.
+    char       Text[32];
 };
 
 struct instruction {
@@ -173,7 +183,9 @@ int main(int argc, char** argv)
                    LastCursor,
                    (unsigned int) (CurrentCursor - LastCursor));
 
-            printf("<number:%s>", CurrentToken.Text);
+            CurrentToken.Type = NUMBER;
+
+            Append<token>(&Tokens, CurrentToken);
 
             LastCursor = CurrentCursor;
 
@@ -194,7 +206,9 @@ int main(int argc, char** argv)
                    LastCursor,
                    (unsigned int) (CurrentCursor - LastCursor));
 
-            printf("<qmark>");
+            CurrentToken.Type = QMARK;
+
+            Append<token>(&Tokens, CurrentToken);
 
             LastCursor = CurrentCursor;
 
@@ -215,7 +229,9 @@ int main(int argc, char** argv)
                    LastCursor,
                    (unsigned int) (CurrentCursor - LastCursor));
 
-            printf("<comma>");
+            CurrentToken.Type = COMMA;
+
+            Append<token>(&Tokens, CurrentToken);
 
             LastCursor = CurrentCursor;
 
@@ -236,7 +252,9 @@ int main(int argc, char** argv)
                    LastCursor,
                    (unsigned int) (CurrentCursor - LastCursor));
 
-            printf("<eol>\n");
+            CurrentToken.Type = EOL;
+
+            Append<token>(&Tokens, CurrentToken);
 
             LastCursor = CurrentCursor;
 
@@ -248,19 +266,38 @@ int main(int argc, char** argv)
 
         // TODO[joe] Report error and halt when we encounter something we don't
         // recognize.
-        else printf("[UNKNOWN]");
+        else printf("Encountered unknown token \'%c\'!\n", *LastCursor);
 
     } while (*CurrentCursor != '\0');
 
+    Append<token>(&Tokens, { .Type = EOL });
 
-    /*
+
+    int CurrentAddress = 0;
+
     buffer<int> Program = { };
 
-    for (unsigned int i = 0; i < Instructions.Length; i++)
+    for (unsigned int i = 0; i < Tokens.Length; i++)
     {
-        for (unsigned int j = 0; j < 3; j++)
+        token Token = Tokens.Data[i];
+
+        switch (Token.Type)
         {
-            Append<int>(&Program, Instructions.Data[i].Parameters[j]);
+            case NUMBER:
+            {
+                Append<int>(&Program, atoi(Token.Text));
+
+                CurrentAddress++;
+            } break;
+
+            case QMARK:
+            {
+                Append<int>(&Program, ++CurrentAddress);
+            } break;
+
+            // We don't care about commas or EOLs just yet.
+            case COMMA: case EOL: default:
+                break;
         }
     }
 
@@ -273,7 +310,7 @@ int main(int argc, char** argv)
                      sizeof(int) * Program.Length);
 
     BinaryFile.close();
-    */
+
 
     return 0;
 }
