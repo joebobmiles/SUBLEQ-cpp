@@ -16,8 +16,8 @@ Where each operand given to the SUBLEQ instruction is an address in memory.
 
 As you can see, on each line we write the name of the operation, followed by
 the operands that the operation is to be performed on. For something like
-SUBLEQ, not only is this exhausting, it's unnecessary. Instead, most SUBLEQ
-implementations write their assembly like this:
+SUBLEQ, not only is this exhausting, it's unnecessary. Instead, SUBLEQ assembly
+is written like this:
 
 ```
 A, B, C
@@ -25,13 +25,11 @@ B, F, D
 D, F, L
 ```
 
-For the SUBLEQ assembler in this project, we use white space to delimit
-operands and newlines to delimit instructions. This means the above becomes:
+Additionally, the SUBLEQ assembler recognizes newlines and semicolons as
+end-of-line (EOL) characters, so the above could also be written as:
 
 ```
-A B C
-B F D
-D F L
+A, B, C; B, F, D; D, F, L;
 ```
 
 ## Memory Addressing
@@ -43,9 +41,9 @@ represent the offset from the first cell in memory. Thus, a SUBLEQ program
 would more resemble:
 
 ```
-0 1 3
-0 1 6
-0 0 -1
+0, 1, 3
+0, 1, 6
+0, 0, -1
 ```
 
 This program subtracts the contents of cell 1 (1) and the contents of cell 0
@@ -67,17 +65,18 @@ memory address of -1 - an exit condition.
 When writing a SUBLEQ program, it's useful to "suppress" branching if the
 result of a SUBLEQ is less than or equal to zero. This can be done by telling
 the SUBLEQ command to instead branch to the next cell in memory, which would be
-the beginning of the next SUBLEQ command. This can be tedious to do by hand, so
-the SUBLEQ assembler has a built in operator - the "next address" operator or
-`?`. For an example:
+the beginning of the next SUBLEQ command. This can be taxing on the programmer
+if they had to keep track of what address was the next one. To simplify this,
+the SUBLEQ assembler has a built-in operator for representing the next address:
+`?`. Here's what our example code looks like with the next address operator:
 
 ```
-0 1 ?
-0 1 ?
-0 0 -1
+0, 1, ?
+0, 1, ?
+0, 0, -1
 ```
 
 This performs SUBLEQ on the cells 0 and 1 twice before exiting. (The effect of
 this inverts the value in cell 1 from 1 to -1 and back again.) This operator
 also has a few other uses, namely subtracting the value at an address from
-itself (`? 1 ?`) and changing the value of a branch address (`1 ? 3`).
+itself (`?, 1, ?`) and changing the value of a branch address (`1, ?, 3`).

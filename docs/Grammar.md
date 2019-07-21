@@ -10,6 +10,8 @@ Here is the Backus-Naur formal grammar for the SUBLEQ assembly language:
 
 <number> ::= <sign> <digit>+
 
+<sign> ::= "+" | "-"
+
 <digit> ::= "0"-"9"
 
 <EOL> ::= ";" | "\n"

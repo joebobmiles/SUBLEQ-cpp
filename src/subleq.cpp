@@ -3,8 +3,7 @@
  * @author Joseph Miles <josephmiles2015@gmail.com>
  * @date 2019-06-10
  *
- * This file contains the main entry point for subleq.exe, the SUBLEQ
- * instruction set VM/interpreter.
+ * This file contains the main entry point for subleq.exe, the SUBLEQ emulator.
  */
 
 // C standard libraries.
@@ -13,10 +12,12 @@
 #include <cassert>
 #include <fstream>
 
+
 int main(int argc, char** argv)
 {
     std::ifstream BinaryFile (argv[1],
                               std::ifstream::out | std::ifstream::binary);
+    // TODO[joe] Repor that we weren't given an input file.
     assert(BinaryFile);
 
     // Discover binary size.
@@ -32,6 +33,8 @@ int main(int argc, char** argv)
 
     int ProgramCounter = 0;
 
+    // TODO[joe] Implement bounds checking so that the user can't access memory
+    // outside the program.
     do
     {
         int *A = Program + Program[ProgramCounter++];
@@ -51,6 +54,10 @@ int main(int argc, char** argv)
     }
     // If we read a negative offset for our next offset, the program ends.
     while (ProgramCounter >= 0);
+
+    // TODO[joe] Perform error reporting here? If we have an out of bounds PC,
+    // we more than likely will break out of the execution loop and wind up
+    // here.
 
     return 0;
 }

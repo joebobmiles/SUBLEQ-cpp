@@ -3,8 +3,18 @@
  * @author Joseph Miles <josephmiles2015@gmail.com>
  * @date 2019-06-10
  *
- * This is the compiler(?) for turning SUBLEQ assembly into a plain binary that
+ * This is the assembler for turning SUBLEQ assembly into a plain binary that
  * is to be interpreted by subleq.exe.
+ *
+ * TODO[joe]:
+ * - Either a) separate things out into their own files, or b) cluster them
+ *   together in the code (to aid in locality).
+ * - Create a stream object for tokens. I think this will save us some memory
+ *   during execution when it comes to parsing. (By removing an array of tokens
+ *   whose used memory is _at least_ the number of tokens stored.)
+ * - Separate totkenization and parsing into different operations. This can be
+ *   pushed into the indefinite future, since I'm not terribly concerned with
+ *   doing these in line with the rest of the main procedure.
  */
 
 #include <cstdio>
@@ -139,6 +149,7 @@ int main(int argc, char** argv)
 {
     std::ifstream SourceFile (argv[1],
                               std::ifstream::in | std::ifstream::binary);
+    // TODO[joe] Report that we weren't given an input file.
     assert(SourceFile);
 
     SourceFile.seekg(0, std::ios::end);
@@ -166,7 +177,10 @@ int main(int argc, char** argv)
     buffer<token> Tokens = { };
     token         CurrentToken = { };
 
-    /** TODO[joe] I itch to make a macro for these repeated segments of code. */
+    /** TODO[joe] I itch to make a macro for these repeated segments of code.
+     * Though something tells me that a) a macro for this will be messy as all
+     * get-out, and b) there's a way to consolodate this that doesn't need
+     * macros. */
     do {
 
         // Match a NUMBER and produce a number token.
@@ -277,6 +291,9 @@ int main(int argc, char** argv)
 
     buffer<int> Program = { };
 
+    // TODO[joe] Instead of writing directly into the program, we should
+    // generate instructions to make sure the user's input program isn't
+    // malformed.
     for (unsigned int i = 0; i < Tokens.Length; i++)
     {
         token Token = Tokens.Data[i];
@@ -296,6 +313,7 @@ int main(int argc, char** argv)
             } break;
 
             // We don't care about commas or EOLs just yet.
+            // TODO[joe] Use these to implement instruction parsing.
             case COMMA: case EOL: default:
                 break;
         }
@@ -304,6 +322,7 @@ int main(int argc, char** argv)
 
     std::ofstream BinaryFile (argv[2],
                               std::ofstream::out | std::ofstream::binary);
+    // TODO[joe] Report that we weren't given an output file.
     assert(BinaryFile);
 
     BinaryFile.write((char *) Program.Data,
