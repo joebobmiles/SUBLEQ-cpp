@@ -10,6 +10,6 @@ rem SUBLEQ compiler output.
 rem
 
 pushd build
-subleqc.exe ..\data\test.s ..\data\test.x
+subleqc.exe ..\data\test.sq ..\data\test.x
 subleq.exe ..\data\test.x
 popd
