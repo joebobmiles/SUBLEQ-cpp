@@ -15,6 +15,9 @@
  * - Separate totkenization and parsing into different operations. This can be
  *   pushed into the indefinite future, since I'm not terribly concerned with
  *   doing these in line with the rest of the main procedure.
+ * - Create a way to keep track of where errors are in the original input text.
+ *   This is so that we can do helpful error messages, such as directing the
+ *   user to where their error is in their code.
  */
 
 #include <cstdio>
@@ -22,6 +25,16 @@
 #include <cassert>
 #include <fstream>
 
+
+#define UsageString "Usage: subleqc <input file> <output file>\n"
+
+
+enum status {
+    NORMAL,
+    MISSING_ARGS,
+    SYNTAX_ERROR,
+    UNKNOWN
+};
 
 template <typename T>
 struct buffer {
@@ -147,10 +160,27 @@ bool IsEOL(const char* Text, unsigned int TextLength)
 
 int main(int argc, char** argv)
 {
+    if (argc == 1)
+    {
+        printf(UsageString
+               "Error: No input file specified, exiting.\n");
+        return MISSING_ARGS;
+    }
+    else if (argc == 2)
+    {
+        printf(UsageString
+               "Error: Missing either input or output file name, exiting.\n");
+        return MISSING_ARGS;
+    }
+
     std::ifstream SourceFile (argv[1],
                               std::ifstream::in | std::ifstream::binary);
-    // TODO[joe] Report that we weren't given an input file.
-    assert(SourceFile);
+
+    if (!SourceFile)
+    {
+        printf("Error: Failed to open input file \"%s\", exiting.\n", argv[1]);
+        return UNKNOWN;
+    }
 
     SourceFile.seekg(0, std::ios::end);
     long SourceFileSize = SourceFile.tellg();
@@ -279,21 +309,23 @@ int main(int argc, char** argv)
         else if (IsWhitespace(*LastCursor)) LastCursor = ++CurrentCursor;
 
         // TODO[joe] Report error and halt when we encounter something we don't
-        // recognize.
-        else printf("Encountered unknown token \'%c\'!\n", *LastCursor);
+        // recognize. (How do we report the location of the unrecognized
+        // symbol?)
+        else
+        {
+            printf("Encountered unrecognized symbol \'%c\'!\n", *LastCursor);
+        }
 
     } while (*CurrentCursor != '\0');
 
     Append<token>(&Tokens, { .Type = EOL });
 
 
-    int CurrentAddress = 0;
+    unsigned int CurrentAddress = 0;
 
-    buffer<int> Program = { };
+    buffer<instruction> Instructions = { };
+    instruction         CurrentInstruction = { };
 
-    // TODO[joe] Instead of writing directly into the program, we should
-    // generate instructions to make sure the user's input program isn't
-    // malformed.
     for (unsigned int i = 0; i < Tokens.Length; i++)
     {
         token Token = Tokens.Data[i];
@@ -302,19 +334,91 @@ int main(int argc, char** argv)
         {
             case NUMBER:
             {
-                Append<int>(&Program, atoi(Token.Text));
+                if (CurrentInstruction.ParameterCount == 3)
+                {
+                    // TODO[joe] A more useful error message.
+                    printf("Error: An instruction can have only 3 parameters.\n");
+
+                    return SYNTAX_ERROR;
+                }
+
+                else
+                {
+                    unsigned int ParameterCount = 
+                                            CurrentInstruction.ParameterCount++;
+
+                    CurrentInstruction.Parameters[ParameterCount] =
+                                                            atoi(Token.Text);
+                }
 
                 CurrentAddress++;
             } break;
 
             case QMARK:
             {
-                Append<int>(&Program, ++CurrentAddress);
+                if (CurrentInstruction.ParameterCount == 3)
+                {
+                    // TODO[joe] A more useful error message.
+                    printf("Error: An instruction can have only 3 parameters.\n");
+
+                    return SYNTAX_ERROR;
+                }
+
+                else
+                {
+                    unsigned int ParameterCount = 
+                                            CurrentInstruction.ParameterCount++;
+
+                    CurrentInstruction.Parameters[ParameterCount] =
+                                                            ++CurrentAddress;
+                }
             } break;
 
-            // We don't care about commas or EOLs just yet.
-            // TODO[joe] Use these to implement instruction parsing.
-            case COMMA: case EOL: default:
+            case EOL:
+            {
+                Append<instruction>(&Instructions, CurrentInstruction);
+                
+                CurrentInstruction = { .Location = CurrentAddress };
+            } break;
+
+            // We don't care about commas.
+            case COMMA: default:
+                break;
+        }
+    }
+
+
+    buffer<int> Program = { };
+
+    for (unsigned int i = 0; i < Instructions.Length; i++)
+    {
+        instruction Instruction = Instructions.Data[i];
+
+        switch (Instruction.ParameterCount)
+        {
+            case 1:
+            {
+                Append<int>(&Program, Instruction.Parameters[0]);
+                Append<int>(&Program, Instruction.Parameters[0]);
+                Append<int>(&Program, Instruction.Location + 3);
+            } break;
+
+            case 2:
+            {
+                Append<int>(&Program, Instruction.Parameters[0]);
+                Append<int>(&Program, Instruction.Parameters[1]);
+                Append<int>(&Program, Instruction.Location + 3);
+            } break;
+
+            case 3:
+            {
+                Append<int>(&Program, Instruction.Parameters[0]);
+                Append<int>(&Program, Instruction.Parameters[1]);
+                Append<int>(&Program, Instruction.Parameters[2]);
+            } break;
+
+            // TODO[joe] Raise error? This is a case we should never reach.
+            default:
                 break;
         }
     }
@@ -322,8 +426,12 @@ int main(int argc, char** argv)
 
     std::ofstream BinaryFile (argv[2],
                               std::ofstream::out | std::ofstream::binary);
-    // TODO[joe] Report that we weren't given an output file.
-    assert(BinaryFile);
+
+    if (!BinaryFile)
+    {
+        printf("Error: Failed to open output file \"%s\", exiting.\n", argv[2]);
+        return UNKNOWN;
+    }
 
     BinaryFile.write((char *) Program.Data,
                      sizeof(int) * Program.Length);
@@ -331,5 +439,5 @@ int main(int argc, char** argv)
     BinaryFile.close();
 
 
-    return 0;
+    return NORMAL;
 }

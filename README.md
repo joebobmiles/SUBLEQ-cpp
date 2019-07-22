@@ -36,7 +36,7 @@ error identifying the problem and halt.
 # Building the Project
 
 You need the following to build this project:
- -  A C/C++ compiler.
+ -  A C++ compiler.
 
 To run the build on a Windows machine, make sure you have Visual Studio
 devtools in your system path and run the build script found in the scripts
