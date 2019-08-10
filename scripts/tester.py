@@ -8,7 +8,7 @@ emulator.
 """
 
 
-import os, subprocess, struct, enum
+import os, subprocess, struct, enum, sys
 
 
 BUILD_DIR = "build"
@@ -98,9 +98,13 @@ emulator_tests = {}
 ## Test Statistics
 ##
 
+TOTAL_TESTS = len(assembler_tests) + len(emulator_tests)
+
 # Total tests passed vs total tests run.
 print("\n  {} / {} tests passed".format(TESTS_PASSED, 
                                         len(assembler_tests)+len(emulator_tests)))
 
 # Total tests that errored.
 print("  {} tests errored".format(TESTS_ERRORED))
+
+sys.exit(TOTAL_TESTS - TESTS_PASSED)
