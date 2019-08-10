@@ -7,6 +7,10 @@
  * is to be interpreted by subleq.exe.
  *
  * TODO[joe]:
+ * - Fix heap corruption errors. (Using Valgrind to debug?)
+ *   The offending return codes:
+ *    - 3221226356 => Related to realloc and out-of-bounds memory access.
+ *    - 3221225477 => Related to char-arrays lacking null-termination.
  * - Either a) separate things out into their own files, or b) cluster them
  *   together in the code (to aid in locality).
  * - Create a stream object for tokens. I think this will save us some memory
