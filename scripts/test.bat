@@ -9,7 +9,4 @@ rem This is a script for automating the sorta tedious process of testing the
 rem SUBLEQ compiler output.
 rem
 
-pushd build
-subleqc.exe ..\data\test.sq ..\data\test.x
-subleq.exe ..\data\test.x
-popd
+python scripts\tester.py
