@@ -72,17 +72,16 @@ void Append(buffer<T> *Buffer, const T Value)
     {
         Buffer->_Size  = 1;
         Buffer->Length = 0;
-        Buffer->Data = (T *)malloc(sizeof(T) * (Buffer->_Size + 1));
+        Buffer->Data = (T *)malloc(sizeof(T) * Buffer->_Size);
     }
     else if (Buffer->Length == Buffer->_Size)
     {
         Buffer->_Size *= 2;
         Buffer->Data = (T *)realloc(Buffer->Data,
-                                    sizeof(T) * (Buffer->_Size + 1));
+                                    sizeof(T) * Buffer->_Size);
     }
 
     Buffer->Data[Buffer->Length++] = Value;
-    Buffer->Data[Buffer->Length] = (T) { };
 }
 
 template <typename T>
