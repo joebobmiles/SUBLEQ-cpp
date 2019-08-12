@@ -7,54 +7,36 @@
  * is to be interpreted by subleq.exe.
  *
  * TODO[joe]:
- * - Either a) separate things out into their own files, or b) cluster them
- *   together in the code (to aid in locality).
+ * - Create a way to keep track of where errors are in the original input text.
+ *   This is so that we can do helpful error messages, such as directing the
+ *   user to where their error is in their code.
  * - Create a stream object for tokens. I think this will save us some memory
  *   during execution when it comes to parsing. (By removing an array of tokens
  *   whose used memory is _at least_ the number of tokens stored.)
  * - Separate totkenization and parsing into different operations. This can be
  *   pushed into the indefinite future, since I'm not terribly concerned with
  *   doing these in line with the rest of the main procedure.
- * - Create a way to keep track of where errors are in the original input text.
- *   This is so that we can do helpful error messages, such as directing the
- *   user to where their error is in their code.
  */
 
+// C/C++ stdlib
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
 #include <fstream>
+
+// Internal libs
+#include "buffer.cpp"
+#include "token.cpp"
 
 
 #define UsageString "Usage: subleqc <input file> <output file>\n"
 
 
 enum status {
-    NORMAL,
-    MISSING_ARGS,
-    SYNTAX_ERROR,
-    UNKNOWN
-};
-
-template <typename T>
-struct buffer {
-    T *Data;
-    unsigned int Length;
-    unsigned int _Size;
-};
-
-enum token_type {
-    NONE,
-    NUMBER,
-    QMARK,
-    COMMA,
-    EOL
-};
-
-struct token {
-    token_type Type;
-    // To quote a friend, 32B should be more than enough for anyone.
-    char       Text[32];
+    STATUS_NORMAL,
+    STATUS_MISSING_ARGS,
+    STATUS_SYNTAX_ERROR,
+    STATUS_UNKNOWN
 };
 
 struct instruction {
@@ -63,37 +45,6 @@ struct instruction {
     unsigned int Location;
 };
 
-
-template <typename T>
-static
-void Append(buffer<T> *Buffer, const T Value)
-{
-    if (Buffer->_Size == 0)
-    {
-        Buffer->_Size  = 1;
-        Buffer->Length = 0;
-        Buffer->Data = (T *)malloc(sizeof(T) * Buffer->_Size);
-    }
-    else if (Buffer->Length == Buffer->_Size)
-    {
-        Buffer->_Size *= 2;
-        Buffer->Data = (T *)realloc(Buffer->Data,
-                                    sizeof(T) * Buffer->_Size);
-    }
-
-    Buffer->Data[Buffer->Length++] = Value;
-}
-
-template <typename T>
-static inline
-void Empty(buffer<T> *Buffer)
-{
-    Buffer->_Size = 0;
-    Buffer->Length = 0;
-
-    free(Buffer->Data);
-    Buffer->Data = 0;
-}
 
 static
 bool IsWhitespace(const char Character)
@@ -163,13 +114,13 @@ int main(int argc, char** argv)
     {
         printf(UsageString
                "Error: No input file specified, exiting.\n");
-        return MISSING_ARGS;
+        return STATUS_MISSING_ARGS;
     }
     else if (argc == 2)
     {
         printf(UsageString
                "Error: Missing either input or output file name, exiting.\n");
-        return MISSING_ARGS;
+        return STATUS_MISSING_ARGS;
     }
 
     std::ifstream SourceFile (argv[1],
@@ -178,7 +129,7 @@ int main(int argc, char** argv)
     if (!SourceFile)
     {
         printf("Error: Failed to open input file \"%s\", exiting.\n", argv[1]);
-        return UNKNOWN;
+        return STATUS_UNKNOWN;
     }
 
     SourceFile.seekg(0, std::ios::end);
@@ -338,7 +289,7 @@ int main(int argc, char** argv)
                     // TODO[joe] A more useful error message.
                     printf("Error: An instruction can have only 3 parameters.\n");
 
-                    return SYNTAX_ERROR;
+                    return STATUS_SYNTAX_ERROR;
                 }
 
                 else
@@ -360,7 +311,7 @@ int main(int argc, char** argv)
                     // TODO[joe] A more useful error message.
                     printf("Error: An instruction can have only 3 parameters.\n");
 
-                    return SYNTAX_ERROR;
+                    return STATUS_SYNTAX_ERROR;
                 }
 
                 else
@@ -429,7 +380,7 @@ int main(int argc, char** argv)
     if (!BinaryFile)
     {
         printf("Error: Failed to open output file \"%s\", exiting.\n", argv[2]);
-        return UNKNOWN;
+        return STATUS_UNKNOWN;
     }
 
     BinaryFile.write((char *) Program.Data,
@@ -438,5 +389,5 @@ int main(int argc, char** argv)
     BinaryFile.close();
 
 
-    return NORMAL;
+    return STATUS_NORMAL;
 }
