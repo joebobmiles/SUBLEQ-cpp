@@ -146,6 +146,39 @@ int main(int argc, char** argv)
     RawProgram[SourceFileSize] = '\0';
 
 
+    // Split source program flat array into 2D array of lines.
+
+    buffer<char*>  Lines = { };
+    char          *Line  = (char *)malloc(sizeof(char));
+
+    buffer<char> TempLine = { };
+
+    for (char* Cursor = RawProgram;
+         *Cursor != '\0';
+         Cursor++)
+    {
+        Append<char>(&TempLine, *Cursor);
+
+        if (*Cursor == '\n')
+        {
+            memcpy(Line, TempLine.Data, TempLine.Length);
+            Line[TempLine.Length] = '\0';
+
+            Append<char*>(&Lines, Line);
+
+            Line = (char *)malloc(sizeof(char));
+            TempLine = { };
+        }
+    }
+
+
+    /** Trial routine to test if line generation procedure worked. */
+    for (unsigned int i = 0; i < Lines.Length; i++)
+    {
+        printf("%s", Lines.Data[i]);
+    }
+
+
     char* LastCursor = RawProgram;
     char* CurrentCursor = RawProgram;
 
@@ -157,10 +190,6 @@ int main(int argc, char** argv)
     buffer<token> Tokens = { };
     token         CurrentToken = { };
 
-    /** TODO[joe] I itch to make a macro for these repeated segments of code.
-     * Though something tells me that a) a macro for this will be messy as all
-     * get-out, and b) there's a way to consolodate this that doesn't need
-     * macros. */
     do {
 
         // Match a NUMBER and produce a number token.
