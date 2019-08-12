@@ -7,10 +7,6 @@
  * is to be interpreted by subleq.exe.
  *
  * TODO[joe]:
- * - Fix heap corruption errors. (Using Valgrind to debug?)
- *   The offending return codes:
- *    - 3221226356 => Related to realloc and out-of-bounds memory access.
- *    - 3221225477 => Related to char-arrays lacking null-termination.
  * - Either a) separate things out into their own files, or b) cluster them
  *   together in the code (to aid in locality).
  * - Create a stream object for tokens. I think this will save us some memory
@@ -76,7 +72,7 @@ void Append(buffer<T> *Buffer, const T Value)
     {
         Buffer->_Size  = 1;
         Buffer->Length = 0;
-        Buffer->Data = (T *)malloc(sizeof(T) * Buffer->_Size);
+        Buffer->Data = (T *)malloc(sizeof(T) * (Buffer->_Size + 1));
     }
     else if (Buffer->Length == Buffer->_Size)
     {
@@ -348,7 +344,7 @@ int main(int argc, char** argv)
 
                 else
                 {
-                    unsigned int ParameterCount = 
+                    unsigned int ParameterCount =
                                             CurrentInstruction.ParameterCount++;
 
                     CurrentInstruction.Parameters[ParameterCount] =
@@ -370,7 +366,7 @@ int main(int argc, char** argv)
 
                 else
                 {
-                    unsigned int ParameterCount = 
+                    unsigned int ParameterCount =
                                             CurrentInstruction.ParameterCount++;
 
                     CurrentInstruction.Parameters[ParameterCount] =
@@ -381,7 +377,7 @@ int main(int argc, char** argv)
             case EOL:
             {
                 Append<instruction>(&Instructions, CurrentInstruction);
-                
+
                 CurrentInstruction = { .Location = CurrentAddress };
             } break;
 
