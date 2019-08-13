@@ -14,6 +14,11 @@ struct buffer {
     T *Data;
     unsigned int Length;
     unsigned int _Size;
+
+    T& operator[](unsigned int index)
+    {
+        return Data[index];
+    }
 };
 
 

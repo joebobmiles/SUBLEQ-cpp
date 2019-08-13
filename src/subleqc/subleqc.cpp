@@ -107,80 +107,11 @@ bool IsEOL(const char* Text, unsigned int TextLength)
            (Text[0] == '\n' || Text[0] == ';');
 }
 
-
-int main(int argc, char** argv)
+static
+buffer<token> Tokenize(char* Line)
 {
-    if (argc == 1)
-    {
-        printf(UsageString
-               "Error: No input file specified, exiting.\n");
-        return STATUS_MISSING_ARGS;
-    }
-    else if (argc == 2)
-    {
-        printf(UsageString
-               "Error: Missing either input or output file name, exiting.\n");
-        return STATUS_MISSING_ARGS;
-    }
-
-    std::ifstream SourceFile (argv[1],
-                              std::ifstream::in | std::ifstream::binary);
-
-    if (!SourceFile)
-    {
-        printf("Error: Failed to open input file \"%s\", exiting.\n", argv[1]);
-        return STATUS_UNKNOWN;
-    }
-
-    SourceFile.seekg(0, std::ios::end);
-    long SourceFileSize = SourceFile.tellg();
-    SourceFile.seekg(0, std::ios::beg);
-
-    char *RawProgram = new char[SourceFileSize + 1];
-
-    SourceFile.read(RawProgram, SourceFileSize);
-
-    SourceFile.close();
-
-    // Ensure that our raw program input is a well-formed c-string.
-    RawProgram[SourceFileSize] = '\0';
-
-
-    // Split source program flat array into 2D array of lines.
-
-    buffer<char*>  Lines = { };
-    char          *Line  = (char *)malloc(sizeof(char));
-
-    buffer<char> TempLine = { };
-
-    for (char* Cursor = RawProgram;
-         *Cursor != '\0';
-         Cursor++)
-    {
-        Append<char>(&TempLine, *Cursor);
-
-        if (*Cursor == '\n')
-        {
-            memcpy(Line, TempLine.Data, TempLine.Length);
-            Line[TempLine.Length] = '\0';
-
-            Append<char*>(&Lines, Line);
-
-            Line = (char *)malloc(sizeof(char));
-            TempLine = { };
-        }
-    }
-
-
-    /** Trial routine to test if line generation procedure worked. */
-    for (unsigned int i = 0; i < Lines.Length; i++)
-    {
-        printf("%s", Lines.Data[i]);
-    }
-
-
-    char* LastCursor = RawProgram;
-    char* CurrentCursor = RawProgram;
+    char* LastCursor = Line;
+    char* CurrentCursor = Line;
 
     bool WasNumber       = false;
     bool WasQuestionMark = false;
@@ -299,6 +230,95 @@ int main(int argc, char** argv)
 
     Append<token>(&Tokens, { .Type = EOL });
 
+    return Tokens;
+}
+
+
+int main(int argc, char** argv)
+{
+    if (argc == 1)
+    {
+        printf(UsageString
+               "Error: No input file specified, exiting.\n");
+        return STATUS_MISSING_ARGS;
+    }
+    else if (argc == 2)
+    {
+        printf(UsageString
+               "Error: Missing either input or output file name, exiting.\n");
+        return STATUS_MISSING_ARGS;
+    }
+
+    std::ifstream SourceFile (argv[1],
+                              std::ifstream::in | std::ifstream::binary);
+
+    if (!SourceFile)
+    {
+        printf("Error: Failed to open input file \"%s\", exiting.\n", argv[1]);
+        return STATUS_UNKNOWN;
+    }
+
+    SourceFile.seekg(0, std::ios::end);
+    long SourceFileSize = SourceFile.tellg();
+    SourceFile.seekg(0, std::ios::beg);
+
+    char *RawProgram = new char[SourceFileSize + 1];
+
+    SourceFile.read(RawProgram, SourceFileSize);
+
+    SourceFile.close();
+
+    // Ensure that our raw program input is a well-formed c-string.
+    RawProgram[SourceFileSize] = '\0';
+
+
+    /** Split source program flat array into 2D array of lines. */
+
+    buffer<char*>  Lines = { };
+    char          *Line  = 0;
+
+    buffer<char> TempLine = { };
+
+    for (char* Cursor = RawProgram;
+         *Cursor != '\0';
+         Cursor++)
+    {
+        Append<char>(&TempLine, *Cursor);
+
+        if (*Cursor == '\n')
+        {
+            Line = (char *)malloc(sizeof(char) * TempLine.Length + 1);
+
+            memcpy(Line, TempLine.Data, TempLine.Length);
+            Line[TempLine.Length] = '\0';
+
+            Append<char*>(&Lines, Line);
+
+            TempLine = { };
+        }
+    }
+
+
+    /** Tokenize lines. */
+
+    // TODO[joe] Inject information about the token's line, position in the
+    // line, as well as the line text into the token struct for reference
+    // later.
+
+    buffer<token> Tokens = { };
+
+    for (unsigned int i = 0; i < Lines.Length; i++)
+    {
+        buffer<token> TempTokens = Tokenize(Lines[i]);
+
+        for (unsigned int j = 0; j < TempTokens.Length; j++)
+        {
+            Append<token>(&Tokens, TempTokens[j]);
+        }
+    }
+
+
+    /** Parse tokens into instructions. */
 
     unsigned int CurrentAddress = 0;
 
@@ -307,7 +327,7 @@ int main(int argc, char** argv)
 
     for (unsigned int i = 0; i < Tokens.Length; i++)
     {
-        token Token = Tokens.Data[i];
+        token Token = Tokens[i];
 
         switch (Token.Type)
         {
@@ -316,7 +336,9 @@ int main(int argc, char** argv)
                 if (CurrentInstruction.ParameterCount == 3)
                 {
                     // TODO[joe] A more useful error message.
-                    printf("Error: An instruction can have only 3 parameters.\n");
+                    // It might be better to permit more than one parameter to
+                    // be added here and then perform a sanity check later on.
+                    printf("Error: An instruction can have only 3 parameters.");
 
                     return STATUS_SYNTAX_ERROR;
                 }
@@ -338,6 +360,8 @@ int main(int argc, char** argv)
                 if (CurrentInstruction.ParameterCount == 3)
                 {
                     // TODO[joe] A more useful error message.
+                    // It might be better to permit more than one parameter to
+                    // be added here and then perform a sanity check later on.
                     printf("Error: An instruction can have only 3 parameters.\n");
 
                     return STATUS_SYNTAX_ERROR;
@@ -367,11 +391,13 @@ int main(int argc, char** argv)
     }
 
 
+    /** Generate program code. */
+
     buffer<int> Program = { };
 
     for (unsigned int i = 0; i < Instructions.Length; i++)
     {
-        instruction Instruction = Instructions.Data[i];
+        instruction Instruction = Instructions[i];
 
         switch (Instruction.ParameterCount)
         {
@@ -402,6 +428,8 @@ int main(int argc, char** argv)
         }
     }
 
+
+    /** Output program code to provided binary file. */
 
     std::ofstream BinaryFile (argv[2],
                               std::ofstream::out | std::ofstream::binary);
