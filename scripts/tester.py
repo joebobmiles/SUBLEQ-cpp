@@ -79,6 +79,7 @@ for test, expected_result in assembler_tests.items():
         program = [ i[0] for i in struct.iter_unpack("i", program_file.read()) ]
 
     if not program == expected_result:
+        print("\nExpected {}, got {}\n".format(expected_result, program))
         print("==> FAILED: \"{}\" ".format(test_file))
 
     else:

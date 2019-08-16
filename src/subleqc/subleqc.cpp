@@ -107,132 +107,6 @@ bool IsEOL(const char* Text, unsigned int TextLength)
            (Text[0] == '\n' || Text[0] == ';');
 }
 
-static
-buffer<token> Tokenize(char* Line)
-{
-    char* LastCursor = Line;
-    char* CurrentCursor = Line;
-
-    bool WasNumber       = false;
-    bool WasQuestionMark = false;
-    bool WasComma        = false;
-    bool WasEOL          = false;
-
-    buffer<token> Tokens = { };
-    token         CurrentToken = { };
-
-    do {
-
-        // Match a NUMBER and produce a number token.
-        if (IsNumber(LastCursor,
-                     (unsigned int) (CurrentCursor - LastCursor + 1)))
-        {
-            WasNumber = true;
-
-            CurrentCursor++;
-        }
-        else if (WasNumber)
-        {
-            memcpy(CurrentToken.Text,
-                   LastCursor,
-                   (unsigned int) (CurrentCursor - LastCursor));
-
-            CurrentToken.Type = NUMBER;
-
-            Append<token>(&Tokens, CurrentToken);
-
-            LastCursor = CurrentCursor;
-
-            WasNumber = false;
-        }
-
-        // Match a QUESTION MARK and produce a qmark token.
-        else if (IsQuestionMark(LastCursor,
-                           (unsigned int) (CurrentCursor - LastCursor + 1)))
-        {
-            WasQuestionMark = true;
-
-            CurrentCursor++;
-        }
-        else if (WasQuestionMark)
-        {
-            memcpy(CurrentToken.Text,
-                   LastCursor,
-                   (unsigned int) (CurrentCursor - LastCursor));
-
-            CurrentToken.Type = QMARK;
-
-            Append<token>(&Tokens, CurrentToken);
-
-            LastCursor = CurrentCursor;
-
-            WasQuestionMark = false;
-        }
-
-        // Match a COMMA and produce a comma token.
-        else if (IsComma(LastCursor,
-                         (unsigned int) (CurrentCursor - LastCursor + 1)))
-        {
-            WasComma = true;
-
-            CurrentCursor++;
-        }
-        else if (WasComma)
-        {
-            memcpy(CurrentToken.Text,
-                   LastCursor,
-                   (unsigned int) (CurrentCursor - LastCursor));
-
-            CurrentToken.Type = COMMA;
-
-            Append<token>(&Tokens, CurrentToken);
-
-            LastCursor = CurrentCursor;
-
-            WasComma = false;
-        }
-
-        // Match a SEMICOLON or a NEWLINE and produce a EOL token.
-        else if (IsEOL(LastCursor,
-                       (unsigned int) (CurrentCursor - LastCursor + 1)))
-        {
-            WasEOL = true;
-
-            CurrentCursor++;
-        }
-        else if (WasEOL)
-        {
-            memcpy(CurrentToken.Text,
-                   LastCursor,
-                   (unsigned int) (CurrentCursor - LastCursor));
-
-            CurrentToken.Type = EOL;
-
-            Append<token>(&Tokens, CurrentToken);
-
-            LastCursor = CurrentCursor;
-
-            WasEOL = false;
-        }
-
-        // Skip whitespace
-        else if (IsWhitespace(*LastCursor)) LastCursor = ++CurrentCursor;
-
-        // TODO[joe] Report error and halt when we encounter something we don't
-        // recognize. (How do we report the location of the unrecognized
-        // symbol?)
-        else
-        {
-            printf("Encountered unrecognized symbol \'%c\'!\n", *LastCursor);
-        }
-
-    } while (*CurrentCursor != '\0');
-
-    Append<token>(&Tokens, { .Type = EOL });
-
-    return Tokens;
-}
-
 
 int main(int argc, char** argv)
 {
@@ -309,7 +183,138 @@ int main(int argc, char** argv)
 
     for (unsigned int i = 0; i < Lines.Length; i++)
     {
-        buffer<token> TempTokens = Tokenize(Lines[i]);
+        buffer<token> TempTokens = { };
+        token         CurrentToken = { };
+
+        unsigned int LineNumber = i + 1;
+
+        char* LastCursor = Lines[i];
+        char* CurrentCursor = Lines[i];
+
+        bool WasNumber       = false;
+        bool WasQuestionMark = false;
+        bool WasComma        = false;
+        bool WasEOL          = false;
+
+        do {
+
+            // Match a NUMBER and produce a number token.
+            if (IsNumber(LastCursor,
+                         (unsigned int) (CurrentCursor - LastCursor + 1)))
+            {
+                WasNumber = true;
+
+                CurrentCursor++;
+            }
+            else if (WasNumber)
+            {
+                memcpy(CurrentToken.Text,
+                       LastCursor,
+                       (unsigned int) (CurrentCursor - LastCursor));
+
+                CurrentToken.Type = NUMBER;
+
+                Append<token>(&TempTokens, CurrentToken);
+
+                LastCursor = CurrentCursor;
+
+                WasNumber = false;
+            }
+
+            // Match a QUESTION MARK and produce a qmark token.
+            else if (IsQuestionMark(LastCursor,
+                               (unsigned int) (CurrentCursor - LastCursor + 1)))
+            {
+                WasQuestionMark = true;
+
+                CurrentCursor++;
+            }
+            else if (WasQuestionMark)
+            {
+                memcpy(CurrentToken.Text,
+                       LastCursor,
+                       (unsigned int) (CurrentCursor - LastCursor));
+
+                CurrentToken.Type = QMARK;
+
+                Append<token>(&TempTokens, CurrentToken);
+
+                LastCursor = CurrentCursor;
+
+                WasQuestionMark = false;
+            }
+
+            // Match a COMMA and produce a comma token.
+            else if (IsComma(LastCursor,
+                             (unsigned int) (CurrentCursor - LastCursor + 1)))
+            {
+                WasComma = true;
+
+                CurrentCursor++;
+            }
+            else if (WasComma)
+            {
+                memcpy(CurrentToken.Text,
+                       LastCursor,
+                       (unsigned int) (CurrentCursor - LastCursor));
+
+                CurrentToken.Type = COMMA;
+
+                Append<token>(&TempTokens, CurrentToken);
+
+                LastCursor = CurrentCursor;
+
+                WasComma = false;
+            }
+
+            // Match a SEMICOLON or a NEWLINE and produce a EOL token.
+            else if (IsEOL(LastCursor,
+                           (unsigned int) (CurrentCursor - LastCursor + 1)))
+            {
+                WasEOL = true;
+
+                CurrentCursor++;
+            }
+            else if (WasEOL)
+            {
+                memcpy(CurrentToken.Text,
+                       LastCursor,
+                       (unsigned int) (CurrentCursor - LastCursor));
+
+                CurrentToken.Type = EOL;
+
+                Append<token>(&TempTokens, CurrentToken);
+
+                LastCursor = CurrentCursor;
+
+                WasEOL = false;
+            }
+
+            // Skip whitespace
+            else if (IsWhitespace(*LastCursor)) LastCursor = ++CurrentCursor;
+
+            else
+            {
+                printf("Encountered unrecognized symbol \'%c\' on line %d, col %d:\n",
+                        *LastCursor, LineNumber, (int) (LastCursor - Lines[i])+1);
+
+                printf("\n\t%s", Lines[i]);
+
+                // This is an esoteric part of the printf() formatting language
+                // that I stumbled across looking for a way to do string padding.
+                // The details can be found here:
+                // https://stackoverflow.com/a/9741091/6785489
+                printf("\t%*.*s^\n", (int) (LastCursor - Lines[i]),
+                                     (int) (LastCursor - Lines[i]),
+                                     " ");
+
+                // Abort execution.
+                return STATUS_SYNTAX_ERROR;
+            }
+
+        } while (*CurrentCursor != '\0');
+
+        Append<token>(&TempTokens, { .Type = EOL });
 
         for (unsigned int j = 0; j < TempTokens.Length; j++)
         {
