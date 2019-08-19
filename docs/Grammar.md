@@ -4,9 +4,9 @@ SUBLEQ Grammar
 Here is the Backus-Naur formal grammar for the SUBLEQ assembly language:
 
 ```
-<line> ::= <expression> "," <expression> "," <expression> <EOL>
-         | <expression> "," <expression> <EOL>
-         | <expression> <EOL>
+<instruction> ::= <expression> "," <expression> "," <expression> <EOL>
+                | <expression> "," <expression> <EOL>
+                | <expression> <EOL>
 
 <expression> ::= <number> | "?"
 
