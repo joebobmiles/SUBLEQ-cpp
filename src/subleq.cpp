@@ -13,7 +13,6 @@
 #include <fstream>
 
 
-#define Deref(OFFSET)    *(Program + OFFSET)
 #define IsStdout(OFFSET) (OFFSET == -1)
 
 
@@ -21,6 +20,7 @@ enum status {
     NORMAL,
     NO_INPUT,
     NO_SUCH_FILE,
+    INVALID_BINARY,
     OFFSET_OUT_OF_BOUNDS,
     UNKNOWN
 };
@@ -54,13 +54,22 @@ int main(int argc, char** argv)
     if (!BinaryFile)
     {
         printf("Failed to open binary \"%s\", exiting.\n", argv[1]);
-        return NO_SUCH_FILE; 
+        return NO_SUCH_FILE;
     }
 
     // Discover binary size.
     BinaryFile.seekg(0, BinaryFile.end);
     long ProgramLength = BinaryFile.tellg();
     BinaryFile.seekg(0, BinaryFile.beg);
+
+    if (ProgramLength %3 != 0)
+    {
+        printf("Input file size (%ldb) is not a multiple of three.\n"
+               "Input file is not a valid SUBLEQ binary, exiting.\n",
+               ProgramLength);
+
+        return INVALID_BINARY;
+    }
 
     int *Program = new int[ProgramLength];
 
@@ -84,10 +93,10 @@ int main(int argc, char** argv)
         }
 
         // The SUBLEQ operation.
-        if ((Deref(B) = Deref(A) - Deref(B)) <= 0)
+        if ((Program[B] = Program[A] - Program[B]) <= 0)
             ProgramCounter = C;
 
-        printf("%d\n", Deref(B));
+        printf("%d\n", Program[B]);
     }
     while (InBounds(ProgramCounter, ProgramLength) &&
            !IsStdout(ProgramCounter));
