@@ -22,6 +22,7 @@
 #include <fstream>
 
 // Internal libs
+#include "util.cpp"
 #include "buffer.cpp"
 #include "token.cpp"
 
@@ -109,14 +110,18 @@ int main(int argc, char** argv)
 {
     if (argc == 1)
     {
-        printf(UsageString
-               "Error: No input file specified, exiting.\n");
+        Severe("No input file specified, exiting.\n");
+
+        printf(UsageString);
+
         return STATUS_MISSING_ARGS;
     }
     else if (argc == 2)
     {
-        printf(UsageString
-               "Error: Missing either input or output file name, exiting.\n");
+        Severe("Missing either input or output file name, exiting.\n");
+
+        printf(UsageString);
+
         return STATUS_MISSING_ARGS;
     }
 
@@ -125,7 +130,8 @@ int main(int argc, char** argv)
 
     if (!SourceFile)
     {
-        printf("Error: Failed to open input file \"%s\", exiting.\n", argv[1]);
+        Error("Failed to open input file \"%s\", exiting.\n", argv[1]);
+
         return STATUS_UNKNOWN;
     }
 
@@ -207,6 +213,7 @@ int main(int argc, char** argv)
 
                 CurrentToken.Type = NUMBER;
                 CurrentToken.Line = Lines[i];
+                CurrentToken.LineNumber = i;
                 CurrentToken.FirstColumn = LastCursor - Lines[i];
                 CurrentToken.LastColumn  = CurrentCursor - Lines[i];
 
@@ -233,6 +240,7 @@ int main(int argc, char** argv)
 
                 CurrentToken.Type = QMARK;
                 CurrentToken.Line = Lines[i];
+                CurrentToken.LineNumber = i;
                 CurrentToken.FirstColumn = LastCursor - Lines[i];
                 CurrentToken.LastColumn  = CurrentCursor - Lines[i];
 
@@ -259,6 +267,7 @@ int main(int argc, char** argv)
 
                 CurrentToken.Type = COMMA;
                 CurrentToken.Line = Lines[i];
+                CurrentToken.LineNumber = i;
                 CurrentToken.FirstColumn = LastCursor - Lines[i];
                 CurrentToken.LastColumn  = CurrentCursor - Lines[i];
 
@@ -285,6 +294,7 @@ int main(int argc, char** argv)
 
                 CurrentToken.Type = EOL;
                 CurrentToken.Line = Lines[i];
+                CurrentToken.LineNumber = i;
                 CurrentToken.FirstColumn = LastCursor - Lines[i];
                 CurrentToken.LastColumn  = CurrentCursor - Lines[i];
 
@@ -300,18 +310,21 @@ int main(int argc, char** argv)
 
             else
             {
-                printf("Encountered unrecognized symbol \'%c\' on line %d, col %d:\n",
-                        *LastCursor, LineNumber, (int) (LastCursor - Lines[i])+1);
+                Error("Encountered unrecognized symbol \'%c\' on line %d,"
+                      " column %d.\n",
+                      *LastCursor,
+                      LineNumber,
+                      (int) (LastCursor - Lines[i] + 1));
 
-                printf("\n\t%s", Lines[i]);
+                fprintf(stderr, "\n\t%s", Lines[i]);
 
                 // This is an esoteric part of the printf() formatting language
                 // that I stumbled across looking for a way to do string padding.
                 // The details can be found here:
                 // https://stackoverflow.com/a/9741091/6785489
-                printf("\t%*.*s^\n", (int) (LastCursor - Lines[i]),
-                                     (int) (LastCursor - Lines[i]),
-                                     " ");
+                fprintf(stderr, "\t%*.*s^\n", (int) (LastCursor - Lines[i]),
+                                              (int) (LastCursor - Lines[i]),
+                                              " ");
 
                 // Abort execution.
                 // TODO[joe] Should we just accumulate errors and report them
@@ -322,7 +335,19 @@ int main(int argc, char** argv)
 
         } while (*CurrentCursor != '\0');
 
-        Append<token>(&TempTokens, { .Type = EOL });
+        // FIXME[joe] This irks me greatly. For a presently unknown reason
+        // (probably something to do with cursor advancement), the EOL at the
+        // end of the line we're reading get's missed by the above loop. This
+        // means we have to manually add an EOL to the TempTokens buffer.
+        Append<token>(&TempTokens,
+                      {
+                        .Type = EOL,
+                        .Line = Lines[i],
+                        .LineNumber  = i,
+                        .FirstColumn = (unsigned int) (LastCursor - Lines[i]),
+                        .LastColumn  = (unsigned int) (CurrentCursor - Lines[i])
+                      });
+
 
         for (unsigned int j = 0; j < TempTokens.Length; j++)
         {
@@ -338,16 +363,19 @@ int main(int argc, char** argv)
     buffer<instruction> Instructions = { };
     instruction         CurrentInstruction = { };
 
-    // TODO[joe] Convert to proper automata instead of doing this some-what
-    // hacky business.
-
     enum parser_state {
+        PARSER_STATE_NONE,
         PARSER_STATE_START,
         PARSER_STATE_FIRST_PARAM,
+        PARSER_STATE_FIRST_COMMA, // TODO[joe] Get rid of commas, logic is simpler.
         PARSER_STATE_SECOND_PARAM,
+        PARSER_STATE_SECOND_COMMA, // TODO[joe] Get rid of commas, logic is simpler.
         PARSER_STATE_THIRD_PARAM,
         PARSER_STATE_EOL,
-    } ParserState = PARSER_STATE_START;
+    };
+
+    parser_state ParserState     = PARSER_STATE_START;
+    parser_state LastParserState = PARSER_STATE_NONE;
 
     struct error {
         char *Message;
@@ -386,6 +414,7 @@ int main(int argc, char** argv)
                             CurrentInstruction.Parameters[Index] = atoi(Token.Text);
                         }
 
+                        LastParserState = ParserState;
                         ParserState = PARSER_STATE_FIRST_PARAM;
                     } break;
 
@@ -404,7 +433,7 @@ int main(int argc, char** argv)
                         // MAGIC[joe] 256 is an arbitray value selected based
                         // on an estimation of how long an error message is
                         // expected to be. This has no other basis than some
-                        // sloppy calculations.
+                        // sloppy mental math.
                         Error.Message = (char *)malloc(sizeof(char) * 256);
 
                         sprintf(Error.Message,
@@ -434,6 +463,73 @@ int main(int argc, char** argv)
             {
                 switch (Token.Type)
                 {
+                    case COMMA:
+                    {
+                        LastParserState = ParserState;
+
+                        switch (ParserState)
+                        {
+                            case PARSER_STATE_FIRST_PARAM:
+                                ParserState = PARSER_STATE_FIRST_COMMA; break;
+
+                            case PARSER_STATE_SECOND_PARAM:
+                                ParserState = PARSER_STATE_SECOND_COMMA; break;
+
+                            default: Unreachable(); break;
+                        }
+                    } break;
+
+                    // Set the state to PARSER EOL
+                    case EOL:
+                    {
+                        Append<instruction>(&Instructions, CurrentInstruction);
+
+                        LastParserState = ParserState;
+                        ParserState = PARSER_STATE_START;
+                    } break;
+
+                    // If we read something we're not supposed to, then we need
+                    // to report an error.
+                    default:
+                    {
+                        error Error = { };
+
+
+                        char *TypeString = TokenTypeToString(Token.Type);
+
+                        // MAGIC[joe] 256 is an arbitray value selected based
+                        // on an estimation of how long an error message is
+                        // expected to be. This has no other basis than some
+                        // sloppy mental math.
+                        Error.Message = (char *)malloc(sizeof(char) * 256);
+
+                        sprintf(Error.Message,
+                                "Unexpected %s when reading instruction. "
+                                "Expected comma.",
+                                TokenTypeToString(Token.Type));
+
+
+                        Error.SourceLine = (char *)malloc(sizeof(char) *
+                                                          strlen(Token.Line));
+
+                        sprintf(Error.SourceLine, "%s", Token.Line);
+
+
+                        Error.LineNumber  = Token.LineNumber;
+                        Error.FirstColumn = Token.FirstColumn;
+                        Error.LastColumn  = Token.LastColumn;
+
+
+                        Append<error>(&Errors, Error);
+                    } break;
+                }
+            } break;
+
+            case PARSER_STATE_FIRST_COMMA:
+            case PARSER_STATE_SECOND_COMMA:
+            {
+                switch (Token.Type)
+                {
                     case NUMBER:
                     case QMARK:
                     {
@@ -451,20 +547,21 @@ int main(int argc, char** argv)
 
                         switch (ParserState)
                         {
-                            case PARSER_STATE_FIRST_PARAM:
-                                ParserState = PARSER_STATE_SECOND_PARAM; break;
+                            case PARSER_STATE_FIRST_COMMA:
+                            {
+                                ParserState = PARSER_STATE_SECOND_PARAM;
+                            } break;
 
-                            case PARSER_STATE_SECOND_PARAM:
-                                ParserState = PARSER_STATE_THIRD_PARAM; break;
+                            case PARSER_STATE_SECOND_COMMA:
+                            {
+                                ParserState = PARSER_STATE_THIRD_PARAM;
+                            } break;
 
-                            default: break;
+                            default:
+                            {
+                                Unreachable();
+                            } break;
                         }
-                    } break;
-
-                    // Set the state to PARSER EOL
-                    case EOL:
-                    {
-                        ParserState = PARSER_STATE_EOL;
                     } break;
 
                     // If we read something we're not supposed to, then we need
@@ -476,12 +573,10 @@ int main(int argc, char** argv)
 
                         char *TypeString = TokenTypeToString(Token.Type);
 
-                        Error.Message = (char *)malloc(sizeof(char) *
-                                                       strlen(TypeString));
                         // MAGIC[joe] 256 is an arbitray value selected based
                         // on an estimation of how long an error message is
                         // expected to be. This has no other basis than some
-                        // sloppy calculations.
+                        // sloppy mental math.
                         Error.Message = (char *)malloc(sizeof(char) * 256);
 
                         sprintf(Error.Message,
@@ -510,10 +605,12 @@ int main(int argc, char** argv)
             {
                 switch (Token.Type)
                 {
-                    // Set the state to PARSER EOL
                     case EOL:
                     {
-                        ParserState = PARSER_STATE_EOL;
+                        Append<instruction>(&Instructions, CurrentInstruction);
+
+                        LastParserState = ParserState;
+                        ParserState = PARSER_STATE_START;
                     } break;
 
                     // If we read something we're not supposed to, then we need
@@ -528,7 +625,7 @@ int main(int argc, char** argv)
                         // MAGIC[joe] 256 is an arbitray value selected based
                         // on an estimation of how long an error message is
                         // expected to be. This has no other basis than some
-                        // sloppy calculations.
+                        // sloppy mental math.
                         Error.Message = (char *)malloc(sizeof(char) * 256);
 
                         sprintf(Error.Message,
@@ -553,21 +650,20 @@ int main(int argc, char** argv)
                 }
             } break;
 
-            case PARSER_STATE_EOL:
+            default:
             {
-                Append<instruction>(&Instructions, CurrentInstruction);
+                // TODO[joe] Will we ever reach this?
+                Unreachable();
             } break;
-
-            // TODO[joe] Will we ever reach this?
-            default: break;
         }
     }
+
 
     if (Errors.Length)
     {
         for (unsigned int i = 0; i < Errors.Length; i++)
         {
-            printf("Error at %d,%d: %s\n\n\t%s",
+            Error("Line %d, column %d: %s\n\n\t%s",
                    Errors[i].LineNumber,
                    Errors[i].FirstColumn,
                    Errors[i].Message,
@@ -577,63 +673,14 @@ int main(int argc, char** argv)
             // that I stumbled across looking for a way to do string padding.
             // The details can be found here:
             // https://stackoverflow.com/a/9741091/6785489
-            printf("\t%*.*s^\n\n",
-                   Errors[i].FirstColumn,
-                   Errors[i].FirstColumn,
-                   " ");
+            fprintf(stderr, "\t%*.*s^\n\n",
+                            Errors[i].FirstColumn,
+                            Errors[i].FirstColumn,
+                            " ");
         }
 
         return STATUS_SYNTAX_ERROR;
     }
-
-    /*
-    for (unsigned int i = 0; i < Tokens.Length; i++)
-    {
-        token Token = Tokens[i];
-
-        switch (Token.Type)
-        {
-            case NUMBER:
-            case QMARK:
-            {
-                if (CurrentInstruction.ParameterCount == 3)
-                {
-                    // TODO[joe] A more useful error message.
-                    // It might be better to permit more than one parameter to
-                    // be added here and then perform a sanity check later on.
-                    printf("Error: An instruction can have only 3 parameters.");
-
-                    return STATUS_SYNTAX_ERROR;
-                }
-
-                else
-                {
-                    unsigned int ParameterCount = CurrentInstruction.ParameterCount++;
-
-                    if (Token.Type == QMARK)
-                        CurrentInstruction.Parameters[ParameterCount] = ++CurrentAddress;
-
-                    else
-                    {
-                        CurrentInstruction.Parameters[ParameterCount] = atoi(Token.Text);
-                        ++CurrentAddress;
-                    }
-                }
-            } break;
-
-            case EOL:
-            {
-                Append<instruction>(&Instructions, CurrentInstruction);
-
-                CurrentInstruction = { .Location = CurrentAddress };
-            } break;
-
-            // We don't care about commas.
-            case COMMA: default:
-                break;
-        }
-    }
-    */
 
 
     /** Generate program code. */
