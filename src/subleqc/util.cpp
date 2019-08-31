@@ -21,7 +21,7 @@
 
 /** Assertions */
 #define Assert(EXPRESSION) \
-    ((EXPRESSION) ? (void) 0 \
+    ((EXPRESSION) ? 0 \
                   : Severe("Assertion \"%s\" failed in %s, line %d", \
                            #EXPRESSION, \
                            __FILE__, \

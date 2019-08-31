@@ -10,7 +10,7 @@
 
 
 // C standard libraries
-#include <stdlib>
+#include <cstdlib>
 
 // Own Libraries
 #include "util.cpp"
@@ -37,7 +37,7 @@ void Push(stack<T> *Stack, T Value)
     else if (Stack->Length == Stack->_Size)
     {
         Stack->_Size *= 2;
-        Stack->Data = (T *)realloc(sizeof(T) * Stack->_Size);
+        Stack->Data = (T *)realloc(Stack->Data, sizeof(T) * Stack->_Size);
     }
 
     Stack->Data[Stack->Length++] = Value;

@@ -10,9 +10,7 @@
  * - Create a stream object for tokens. I think this will save us some memory
  *   during execution when it comes to parsing. (By removing an array of tokens
  *   whose used memory is _at least_ the number of tokens stored.)
- * - Separate totkenization and parsing into different operations. This can be
- *   pushed into the indefinite future, since I'm not terribly concerned with
- *   doing these in line with the rest of the main procedure.
+ * - Add commandline argument parsing.
  */
 
 // C/C++ stdlib
@@ -36,74 +34,6 @@ enum status {
     STATUS_SYNTAX_ERROR,
     STATUS_UNKNOWN
 };
-
-struct instruction {
-    int Parameters[3];
-    unsigned int ParameterCount;
-    unsigned int Location;
-};
-
-
-static
-bool IsWhitespace(const char Character)
-{
-    char WhitespaceSet[] = { ' ', '\t', '\r' };
-
-    for (unsigned int i = 0; i < sizeof(WhitespaceSet); i++)
-    {
-        if (WhitespaceSet[i] == Character)
-            return true;
-    }
-
-    return false;
-}
-
-static
-bool IsDigit(const char Character)
-{
-    int DecimalValue = (int) Character;
-    return DecimalValue >= 48 && DecimalValue <= 57;
-}
-
-static
-bool IsSign(const char Character)
-{
-    return Character == '-' || Character == '+';
-}
-
-static
-bool IsNumber(const char* Text, unsigned int TextLength)
-{
-    if (!IsSign(Text[0]) && !IsDigit(Text[0]))
-        return false;
-
-    for (int i = 1; i < TextLength; i++)
-    {
-        if (!IsDigit(Text[i]))
-            return false;
-    }
-
-    return true;
-}
-
-static
-bool IsQuestionMark(const char* Text, unsigned int TextLength)
-{
-    return TextLength == 1 && Text[0] == '?';
-}
-
-static
-bool IsComma(const char* Text, unsigned int TextLength)
-{
-    return TextLength == 1 && Text[0] == ',';
-}
-
-static
-bool IsEOL(const char* Text, unsigned int TextLength)
-{
-    return TextLength == 1 &&
-           (Text[0] == '\n' || Text[0] == ';');
-}
 
 
 int main(int argc, char** argv)
@@ -149,216 +79,33 @@ int main(int argc, char** argv)
     RawProgram[SourceFileSize] = '\0';
 
 
-    /** Split source program flat array into 2D array of lines. */
-
-    buffer<char*>  Lines = { };
-    char          *Line  = 0;
-
-    buffer<char> TempLine = { };
-
-    for (char* Cursor = RawProgram;
-         *Cursor != '\0';
-         Cursor++)
-    {
-        Append<char>(&TempLine, *Cursor);
-
-        if (*Cursor == '\n')
-        {
-            Line = (char *)malloc(sizeof(char) * TempLine.Length + 1);
-
-            memcpy(Line, TempLine.Data, TempLine.Length);
-            Line[TempLine.Length] = '\0';
-
-            Append<char*>(&Lines, Line);
-
-            TempLine = { };
-        }
-    }
+    tokenizer Tokenizer = { };
+    Tokenizer.Text = RawProgram;
 
 
-    /** Tokenize lines. */
+    /** Tokenize input. */
 
     buffer<token> Tokens = { };
+    token         Token  = NextToken(&Tokenizer);
 
-    for (unsigned int i = 0; i < Lines.Length; i++)
+    // TODO[joe] Is there a better way to check if a Token is valid?
+    while (Token.Type != NONE)
     {
-        buffer<token> TempTokens = { };
-        token         CurrentToken = { };
+        Append<token>(&Tokens, Token);
 
-        unsigned int LineNumber = i + 1;
-
-        char* LastCursor = Lines[i];
-        char* CurrentCursor = Lines[i];
-
-        bool WasNumber       = false;
-        bool WasQuestionMark = false;
-        bool WasComma        = false;
-        bool WasEOL          = false;
-
-        do {
-
-            // Match a NUMBER and produce a number token.
-            if (IsNumber(LastCursor,
-                         (unsigned int) (CurrentCursor - LastCursor + 1)))
-            {
-                WasNumber = true;
-
-                CurrentCursor++;
-            }
-            else if (WasNumber)
-            {
-                memcpy(CurrentToken.Text,
-                       LastCursor,
-                       (unsigned int) (CurrentCursor - LastCursor));
-
-                CurrentToken.Type = NUMBER;
-                CurrentToken.Line = Lines[i];
-                CurrentToken.LineNumber = i;
-                CurrentToken.FirstColumn = LastCursor - Lines[i];
-                CurrentToken.LastColumn  = CurrentCursor - Lines[i];
-
-                Append<token>(&TempTokens, CurrentToken);
-
-                LastCursor = CurrentCursor;
-
-                WasNumber = false;
-            }
-
-            // Match a QUESTION MARK and produce a qmark token.
-            else if (IsQuestionMark(LastCursor,
-                               (unsigned int) (CurrentCursor - LastCursor + 1)))
-            {
-                WasQuestionMark = true;
-
-                CurrentCursor++;
-            }
-            else if (WasQuestionMark)
-            {
-                memcpy(CurrentToken.Text,
-                       LastCursor,
-                       (unsigned int) (CurrentCursor - LastCursor));
-
-                CurrentToken.Type = QMARK;
-                CurrentToken.Line = Lines[i];
-                CurrentToken.LineNumber = i;
-                CurrentToken.FirstColumn = LastCursor - Lines[i];
-                CurrentToken.LastColumn  = CurrentCursor - Lines[i];
-
-                Append<token>(&TempTokens, CurrentToken);
-
-                LastCursor = CurrentCursor;
-
-                WasQuestionMark = false;
-            }
-
-            // Match a COMMA and produce a comma token.
-            else if (IsComma(LastCursor,
-                             (unsigned int) (CurrentCursor - LastCursor + 1)))
-            {
-                WasComma = true;
-
-                CurrentCursor++;
-            }
-            else if (WasComma)
-            {
-                memcpy(CurrentToken.Text,
-                       LastCursor,
-                       (unsigned int) (CurrentCursor - LastCursor));
-
-                CurrentToken.Type = COMMA;
-                CurrentToken.Line = Lines[i];
-                CurrentToken.LineNumber = i;
-                CurrentToken.FirstColumn = LastCursor - Lines[i];
-                CurrentToken.LastColumn  = CurrentCursor - Lines[i];
-
-                Append<token>(&TempTokens, CurrentToken);
-
-                LastCursor = CurrentCursor;
-
-                WasComma = false;
-            }
-
-            // Match a SEMICOLON or a NEWLINE and produce a EOL token.
-            else if (IsEOL(LastCursor,
-                           (unsigned int) (CurrentCursor - LastCursor + 1)))
-            {
-                WasEOL = true;
-
-                CurrentCursor++;
-            }
-            else if (WasEOL)
-            {
-                memcpy(CurrentToken.Text,
-                       LastCursor,
-                       (unsigned int) (CurrentCursor - LastCursor));
-
-                CurrentToken.Type = EOL;
-                CurrentToken.Line = Lines[i];
-                CurrentToken.LineNumber = i;
-                CurrentToken.FirstColumn = LastCursor - Lines[i];
-                CurrentToken.LastColumn  = CurrentCursor - Lines[i];
-
-                Append<token>(&TempTokens, CurrentToken);
-
-                LastCursor = CurrentCursor;
-
-                WasEOL = false;
-            }
-
-            // Skip whitespace
-            else if (IsWhitespace(*LastCursor)) LastCursor = ++CurrentCursor;
-
-            else
-            {
-                Error("Encountered unrecognized symbol \'%c\' on line %d,"
-                      " column %d.\n",
-                      *LastCursor,
-                      LineNumber,
-                      (int) (LastCursor - Lines[i] + 1));
-
-                fprintf(stderr, "\n\t%s", Lines[i]);
-
-                // This is an esoteric part of the printf() formatting language
-                // that I stumbled across looking for a way to do string padding.
-                // The details can be found here:
-                // https://stackoverflow.com/a/9741091/6785489
-                fprintf(stderr, "\t%*.*s^\n", (int) (LastCursor - Lines[i]),
-                                              (int) (LastCursor - Lines[i]),
-                                              " ");
-
-                // Abort execution.
-                // TODO[joe] Should we just accumulate errors and report them
-                // all at once instead of aborting on the first error
-                // encountered?
-                return STATUS_SYNTAX_ERROR;
-            }
-
-        } while (*CurrentCursor != '\0');
-
-        // FIXME[joe] This irks me greatly. For a presently unknown reason
-        // (probably something to do with cursor advancement), the EOL at the
-        // end of the line we're reading get's missed by the above loop. This
-        // means we have to manually add an EOL to the TempTokens buffer.
-        Append<token>(&TempTokens,
-                      {
-                        .Type = EOL,
-                        .Line = Lines[i],
-                        .LineNumber  = i,
-                        .FirstColumn = (unsigned int) (LastCursor - Lines[i]),
-                        .LastColumn  = (unsigned int) (CurrentCursor - Lines[i])
-                      });
-
-
-        for (unsigned int j = 0; j < TempTokens.Length; j++)
-        {
-            Append<token>(&Tokens, TempTokens[j]);
-        }
+        Token = NextToken(&Tokenizer);
     }
 
 
     /** Parse tokens into instructions. */
 
     unsigned int CurrentAddress = 0;
+
+    struct instruction {
+        int Parameters[3];
+        unsigned int ParameterCount;
+        unsigned int Location;
+    };
 
     buffer<instruction> Instructions = { };
     instruction         CurrentInstruction = { };

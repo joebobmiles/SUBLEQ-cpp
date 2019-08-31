@@ -15,9 +15,9 @@ struct buffer {
     unsigned int Length;
     unsigned int _Size;
 
-    T& operator[](unsigned int index)
+    T& operator[](unsigned int Index)
     {
-        return Data[index];
+        return Data[Index];
     }
 };
 
