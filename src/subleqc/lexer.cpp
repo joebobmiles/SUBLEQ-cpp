@@ -11,7 +11,7 @@
 
 
 /* C Standard Libraries. */
-#include <cstring>
+#include <algorithm>
 
 /* Own Libraries. */
 #include "token.cpp"
@@ -217,7 +217,9 @@ token NextToken(lexer *Lexer)
         if (NextType == INVALID &&
             (CurrentType != INVALID || CheckTokenType(&NextCharacter, 1) != INVALID))
         {
-            memcpy(Token.Text, Stack.Data, Stack.Length);
+            std::copy(Stack.Data,
+                      Stack.Data + Stack.Length,
+                      Token.Text);
 
             Token.Type = CurrentType;
             Token.LineNumber = Lexer->LineNumber;

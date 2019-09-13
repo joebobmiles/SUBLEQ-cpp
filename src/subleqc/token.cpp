@@ -10,7 +10,6 @@
 
 
 /* C Standard Libraries */
-#include <cstdio>
 
 /* Own Libraries */
 
@@ -46,28 +45,33 @@ char *TokenTypeToString(token_type Type)
     {
         case NUMBER:
         {
-            sprintf(Return, "number");
+            std::string String("number");
+            std::copy(String.begin(), String.end(), Return);
         } break;
 
         case QMARK:
         {
-            sprintf(Return, "question mark");
+            std::string String("question mark");
+            std::copy(String.begin(), String.end(), Return);
         } break;
 
         case COMMA:
         {
-            sprintf(Return, "comma");
+            std::string String("comma");
+            std::copy(String.begin(), String.end(), Return);
         } break;
 
         case EOL:
         {
-            sprintf(Return, "end of line");
+            std::string String("end of line");
+            std::copy(String.begin(), String.end(), Return);
         } break;
 
         case INVALID:
         default:
         {
-            sprintf(Return, "invalid");
+            std::string String("invalid token");
+            std::copy(String.begin(), String.end(), Return);
         } break;
     }
 
