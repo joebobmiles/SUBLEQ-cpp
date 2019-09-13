@@ -10,7 +10,6 @@
 
 
 // C standard libraries
-#include <cstdlib>
 
 // Own Libraries
 #include "util.cpp"
@@ -31,13 +30,23 @@ void Push(stack<T> *Stack, T Value)
 {
     if (Stack->_Size == 0)
     {
-        Stack->Data = (T *)malloc(sizeof(T));
         Stack->_Size = 1;
+        Stack->Data = new T[Stack->_Size];
     }
     else if (Stack->Length == Stack->_Size)
     {
         Stack->_Size *= 2;
         Stack->Data = (T *)realloc(Stack->Data, sizeof(T) * Stack->_Size);
+
+        T *Temp = new T[Stack->_Size];
+
+        for (unsigned int i = 0; i < Stack->Length; i++)
+        {
+            Temp[i] = Stack->Data[i];
+        }
+
+        delete[] Stack->Data;
+        Stack->Data = Temp;
     }
 
     Stack->Data[Stack->Length++] = Value;
@@ -76,7 +85,7 @@ void Empty(stack<T> *Stack)
     // fix that, but I haven't decided if that's desirable yet).
     Assert(Stack->Data != 0);
 
-    free(Stack->Data);
+    delete[] Stack->Data;
 
     *Stack = { };
 }

@@ -11,7 +11,6 @@
 
 /* C Standard Libraries */
 #include <cstdio>
-#include <cstdlib>
 
 /* Own Libraries */
 
@@ -41,7 +40,7 @@ struct token {
 static inline
 char *TokenTypeToString(token_type Type)
 {
-    char* Return = (char *)malloc(sizeof(char) * 16);
+    char* Return = new char[16];
 
     switch (Type)
     {

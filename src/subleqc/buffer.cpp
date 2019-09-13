@@ -30,13 +30,21 @@ void Append(buffer<T> *Buffer, const T Value)
     {
         Buffer->_Size  = 1;
         Buffer->Length = 0;
-        Buffer->Data = (T *)malloc(sizeof(T) * Buffer->_Size);
+        Buffer->Data = new T[Buffer->_Size];
     }
     else if (Buffer->Length == Buffer->_Size)
     {
         Buffer->_Size *= 2;
-        Buffer->Data = (T *)realloc(Buffer->Data,
-                                    sizeof(T) * Buffer->_Size);
+
+        T *Temp = new T[Buffer->_Size];
+
+        for (unsigned int i = 0; i < Buffer->Length; i++)
+        {
+            Temp[i] = Buffer->Data[i];
+        }
+
+        delete[] Buffer->Data;
+        Buffer->Data = Temp;
     }
 
     Buffer->Data[Buffer->Length++] = Value;
@@ -49,6 +57,5 @@ void Empty(buffer<T> *Buffer)
     Buffer->_Size = 0;
     Buffer->Length = 0;
 
-    free(Buffer->Data);
-    Buffer->Data = 0;
+    delete[] Buffer->Data;
 }

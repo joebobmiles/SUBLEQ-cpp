@@ -15,7 +15,6 @@
 
 // C/C++ stdlib
 #include <cstdio>
-#include <cstdlib>
 #include <cassert>
 #include <fstream>
 
@@ -56,7 +55,7 @@ error GenerateError(const char *Message, token *Token)
     // on an estimation of how long an error message is
     // expected to be. This has no other basis than some
     // sloppy mental math.
-    Error.Message = (char *)malloc(sizeof(char) * 256);
+    Error.Message = new char[256];
 
     sprintf(Error.Message,
             Message,
