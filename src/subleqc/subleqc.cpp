@@ -23,6 +23,7 @@
 #include "util.cpp"
 #include "buffer.cpp"
 #include "token.cpp"
+#include "lexer.cpp"
 
 
 #define UsageString "Usage: subleqc <input file> <output file>\n"
@@ -34,6 +35,39 @@ enum status {
     STATUS_SYNTAX_ERROR,
     STATUS_UNKNOWN
 };
+
+struct error {
+    char *Message;
+    char *SourceLine;
+    unsigned int LineNumber;
+    unsigned int FirstColumn;
+    unsigned int LastColumn;
+};
+
+
+static
+error GenerateError(const char *Message, token *Token)
+{
+    error Error = { };
+
+    char *TypeString = TokenTypeToString(Token->Type);
+
+    // MAGIC[joe] 256 is an arbitray value selected based
+    // on an estimation of how long an error message is
+    // expected to be. This has no other basis than some
+    // sloppy mental math.
+    Error.Message = (char *)malloc(sizeof(char) * 256);
+
+    sprintf(Error.Message,
+            Message,
+            TokenTypeToString(Token->Type));
+
+    Error.LineNumber  = Token->LineNumber;
+    Error.FirstColumn = Token->LastColumn - strlen(Token->Text);
+    Error.LastColumn  = Token->LastColumn;
+
+    return Error;
+}
 
 
 int main(int argc, char** argv)
@@ -79,22 +113,32 @@ int main(int argc, char** argv)
     RawProgram[SourceFileSize] = '\0';
 
 
-    tokenizer Tokenizer = { };
-    Tokenizer.Text = RawProgram;
+    /** Split source into lines for error reporting. */
+    buffer<char *> Lines = { };
+    buffer<char>   Line  = { };
 
-
-    /** Tokenize input. */
-
-    buffer<token> Tokens = { };
-    token         Token  = NextToken(&Tokenizer);
-
-    // TODO[joe] Is there a better way to check if a Token is valid?
-    while (Token.Type != NONE)
+    for (char *Character = RawProgram;
+         *Character != '\0';
+         Character++)
     {
-        Append<token>(&Tokens, Token);
+        Append<char>(&Line, *Character);
 
-        Token = NextToken(&Tokenizer);
+        if (*Character == '\n')
+        {
+            Append<char>(&Line, '\0');
+            Append<char *>(&Lines, Line.Data);
+
+            // NOTE[joe] We don't use Empty() here since it would free memory
+            // we'd want to use later.
+            Line = { };
+        }
     }
+
+
+    /** Configure lexer. */
+
+    lexer Lexer  = { };
+    Lexer.Source = RawProgram;
 
 
     /** Parse tokens into instructions. */
@@ -121,23 +165,15 @@ int main(int argc, char** argv)
         PARSER_STATE_EOL,
     };
 
-    parser_state ParserState     = PARSER_STATE_START;
-    parser_state LastParserState = PARSER_STATE_NONE;
-
-    struct error {
-        char *Message;
-        char *SourceLine;
-        unsigned int LineNumber;
-        unsigned int FirstColumn;
-        unsigned int LastColumn;
-    };
+    parser_state ParserState = PARSER_STATE_START;
 
     buffer<error> Errors = { };
 
-    for (unsigned int i = 0; i < Tokens.Length; i++)
-    {
-        token Token = Tokens[i];
 
+    for (token Token = NextToken(&Lexer);
+         Token.Type != NONE;
+         Token = NextToken(&Lexer))
+    {
         switch (ParserState)
         {
             case PARSER_STATE_START:
@@ -161,7 +197,6 @@ int main(int argc, char** argv)
                             CurrentInstruction.Parameters[Index] = atoi(Token.Text);
                         }
 
-                        LastParserState = ParserState;
                         ParserState = PARSER_STATE_FIRST_PARAM;
                     } break;
 
@@ -172,33 +207,10 @@ int main(int argc, char** argv)
                     // to report an error.
                     default:
                     {
-                        error Error = { };
-
-
-                        char *TypeString = TokenTypeToString(Token.Type);
-
-                        // MAGIC[joe] 256 is an arbitray value selected based
-                        // on an estimation of how long an error message is
-                        // expected to be. This has no other basis than some
-                        // sloppy mental math.
-                        Error.Message = (char *)malloc(sizeof(char) * 256);
-
-                        sprintf(Error.Message,
-                                "Unexpected %s when reading instruction. "
-                                "Expected number or question mark.",
-                                TokenTypeToString(Token.Type));
-
-
-                        Error.SourceLine = (char *)malloc(sizeof(char) *
-                                                          strlen(Token.Line));
-
-                        sprintf(Error.SourceLine, "%s", Token.Line);
-
-
-                        Error.LineNumber  = Token.LineNumber;
-                        Error.FirstColumn = Token.FirstColumn;
-                        Error.LastColumn  = Token.LastColumn;
-
+                        error Error = GenerateError("Unexpected %s when reading"
+                                                    " instruction. Expected "
+                                                    "number or question mark.",
+                                                    &Token);
 
                         Append<error>(&Errors, Error);
                     } break;
@@ -212,7 +224,6 @@ int main(int argc, char** argv)
                 {
                     case COMMA:
                     {
-                        LastParserState = ParserState;
 
                         switch (ParserState)
                         {
@@ -231,7 +242,6 @@ int main(int argc, char** argv)
                     {
                         Append<instruction>(&Instructions, CurrentInstruction);
 
-                        LastParserState = ParserState;
                         ParserState = PARSER_STATE_START;
                     } break;
 
@@ -239,33 +249,9 @@ int main(int argc, char** argv)
                     // to report an error.
                     default:
                     {
-                        error Error = { };
-
-
-                        char *TypeString = TokenTypeToString(Token.Type);
-
-                        // MAGIC[joe] 256 is an arbitray value selected based
-                        // on an estimation of how long an error message is
-                        // expected to be. This has no other basis than some
-                        // sloppy mental math.
-                        Error.Message = (char *)malloc(sizeof(char) * 256);
-
-                        sprintf(Error.Message,
-                                "Unexpected %s when reading instruction. "
-                                "Expected comma.",
-                                TokenTypeToString(Token.Type));
-
-
-                        Error.SourceLine = (char *)malloc(sizeof(char) *
-                                                          strlen(Token.Line));
-
-                        sprintf(Error.SourceLine, "%s", Token.Line);
-
-
-                        Error.LineNumber  = Token.LineNumber;
-                        Error.FirstColumn = Token.FirstColumn;
-                        Error.LastColumn  = Token.LastColumn;
-
+                        error Error = GenerateError("Unexpected %s when reading "
+                                                    "instruction. Expected comma.",
+                                                    &Token);
 
                         Append<error>(&Errors, Error);
                     } break;
@@ -315,33 +301,10 @@ int main(int argc, char** argv)
                     // to report an error.
                     default:
                     {
-                        error Error = { };
-
-
-                        char *TypeString = TokenTypeToString(Token.Type);
-
-                        // MAGIC[joe] 256 is an arbitray value selected based
-                        // on an estimation of how long an error message is
-                        // expected to be. This has no other basis than some
-                        // sloppy mental math.
-                        Error.Message = (char *)malloc(sizeof(char) * 256);
-
-                        sprintf(Error.Message,
-                                "Unexpected %s when reading instruction. "
-                                "Expected number or question mark.",
-                                TokenTypeToString(Token.Type));
-
-
-                        Error.SourceLine = (char *)malloc(sizeof(char) *
-                                                          strlen(Token.Line));
-
-                        sprintf(Error.SourceLine, "%s", Token.Line);
-
-
-                        Error.LineNumber  = Token.LineNumber;
-                        Error.FirstColumn = Token.FirstColumn;
-                        Error.LastColumn  = Token.LastColumn;
-
+                        error Error = GenerateError("Unexpected %s when reading "
+                                                    "instruction. Expected "
+                                                    "number or question mark.", 
+                                                    &Token);
 
                         Append<error>(&Errors, Error);
                     } break;
@@ -356,7 +319,6 @@ int main(int argc, char** argv)
                     {
                         Append<instruction>(&Instructions, CurrentInstruction);
 
-                        LastParserState = ParserState;
                         ParserState = PARSER_STATE_START;
                     } break;
 
@@ -364,33 +326,10 @@ int main(int argc, char** argv)
                     // to report an error.
                     default:
                     {
-                        error Error = { };
-
-
-                        char *TypeString = TokenTypeToString(Token.Type);
-
-                        // MAGIC[joe] 256 is an arbitray value selected based
-                        // on an estimation of how long an error message is
-                        // expected to be. This has no other basis than some
-                        // sloppy mental math.
-                        Error.Message = (char *)malloc(sizeof(char) * 256);
-
-                        sprintf(Error.Message,
-                                "Unexpected %s when reading instruction. "
-                                "Expected end of line.",
-                                TokenTypeToString(Token.Type));
-
-
-                        Error.SourceLine = (char *)malloc(sizeof(char) *
-                                                          strlen(Token.Line));
-
-                        sprintf(Error.SourceLine, "%s", Token.Line);
-
-
-                        Error.LineNumber  = Token.LineNumber;
-                        Error.FirstColumn = Token.FirstColumn;
-                        Error.LastColumn  = Token.LastColumn;
-
+                        error Error = GenerateError("Unexpected %s when reading "
+                                                    "instruction. Expected end "
+                                                    "of line.",
+                                                    &Token);
 
                         Append<error>(&Errors, Error);
                     } break;
@@ -411,10 +350,10 @@ int main(int argc, char** argv)
         for (unsigned int i = 0; i < Errors.Length; i++)
         {
             Error("Line %d, column %d: %s\n\n\t%s",
-                   Errors[i].LineNumber,
-                   Errors[i].FirstColumn,
+                   Errors[i].LineNumber + 1,
+                   Errors[i].FirstColumn + 1,
                    Errors[i].Message,
-                   Errors[i].SourceLine);
+                   Lines[Errors[i].LineNumber]);
 
             // This is an esoteric part of the printf() formatting language
             // that I stumbled across looking for a way to do string padding.
@@ -463,7 +402,9 @@ int main(int argc, char** argv)
 
             // TODO[joe] Raise error? This is a case we should never reach.
             default:
-                break;
+            {
+                Unreachable();
+            } break;
         }
     }
 

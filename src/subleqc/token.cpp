@@ -9,14 +9,14 @@
 #pragma once
 
 
-// C Standard Libraries
+/* C Standard Libraries */
 #include <cstdio>
-#include <cstring>
+#include <cstdlib>
 
-// Own Libraries
-#include "buffer.cpp"
-#include "stack.cpp"
+/* Own Libraries */
 
+
+/* Structs */
 
 enum token_type {
     NONE,
@@ -27,13 +27,14 @@ enum token_type {
     INVALID,
 };
 
+
+/* Functions */
+
 struct token {
     token_type Type;
     // To quote a friend, 32B should be more than enough for anyone.
-    char  Text[32];
-    char* Line;
+    char Text[32];
     unsigned int LineNumber;
-    unsigned int FirstColumn;
     unsigned int LastColumn;
 };
 
@@ -72,153 +73,4 @@ char *TokenTypeToString(token_type Type)
     }
 
     return Return;
-}
-
-
-struct tokenizer {
-    char *Text;
-    unsigned int Cursor;
-    unsigned int Line;
-};
-
-
-static
-bool IsWhitespace(const char Character)
-{
-    char WhitespaceSet[] = { ' ', '\t', '\r' };
-
-    for (unsigned int i = 0; i < sizeof(WhitespaceSet); i++)
-    {
-        if (WhitespaceSet[i] == Character)
-            return true;
-    }
-
-    return false;
-}
-
-static
-bool IsDigit(const char Character)
-{
-    int DecimalValue = (int) Character;
-    return DecimalValue >= 48 && DecimalValue <= 57;
-}
-
-static
-bool IsSign(const char Character)
-{
-    return Character == '-' || Character == '+';
-}
-
-static
-bool IsNumber(const char* Text, unsigned int TextLength)
-{
-    if (!IsSign(Text[0]) && !IsDigit(Text[0]))
-        return false;
-
-    for (int i = 1; i < TextLength; i++)
-    {
-        if (!IsDigit(Text[i]))
-            return false;
-    }
-
-    return true;
-}
-
-static
-bool IsQuestionMark(const char* Text, unsigned int TextLength)
-{
-    return TextLength == 1 && Text[0] == '?';
-}
-
-static
-bool IsComma(const char* Text, unsigned int TextLength)
-{
-    return TextLength == 1 && Text[0] == ',';
-}
-
-static
-bool IsEOL(const char* Text, unsigned int TextLength)
-{
-    return TextLength == 1 &&
-           (Text[0] == '\n' || Text[0] == ';');
-}
-
-static inline
-token_type CheckTokenType(const char *Text, unsigned int TextLength)
-{
-#define Match(F,T)  if (Is##F(Text, TextLength)) return T;
-
-    Match(Number, NUMBER)
-    else Match(QuestionMark, QMARK)
-    else Match(Comma, COMMA)
-    else Match(EOL, EOL)
-    else
-    {
-        return INVALID;
-    }
-}
-
-static inline
-void SkipWhitespace(tokenizer *Tokenizer)
-{
-    while (IsWhitespace(Tokenizer->Text[Tokenizer->Cursor]))
-        Tokenizer->Cursor++;
-}
-
-static
-token NextToken(tokenizer *Tokenizer)
-{
-    stack<char> Stack = { };
-    token Token = { };
-
-    SkipWhitespace(Tokenizer);
-
-    char Character = Tokenizer->Text[Tokenizer->Cursor];
-    Push<char>(&Stack, Character);
-
-    while (Character != '\0')
-    {
-        if (IsWhitespace(Character))
-        {
-            Character = Tokenizer->Text[++Tokenizer->Cursor];
-            continue;
-        }
-
-        token_type CurrentType = CheckTokenType(Stack.Data, Stack.Length);
-
-        Character = Tokenizer->Text[++Tokenizer->Cursor];
-        Push<char>(&Stack, Character);
-
-        token_type NextType = CheckTokenType(Stack.Data, Stack.Length);
-
-        if (CurrentType != NextType)
-        {
-            Pop<char>(&Stack);
-
-            // TODO[joe] Create a token.
-            
-            memcpy(Token.Text, Stack.Data, Stack.Length);
-
-            Token.Type = CurrentType;
-
-            return Token;
-        }
-        else if (CurrentType == NextType && CurrentType == INVALID)
-        {
-            if (CheckTokenType(&Character, 1) != INVALID)
-            {
-                Pop<char>(&Stack);
-
-                // TODO[joe] Create INVALID token.
-                
-                memcpy(Token.Text, Stack.Data, Stack.Length);
-
-                Token.Type = CurrentType;
-
-                return Token;
-            }
-        }
-    }
-
-    return Token;
 }
