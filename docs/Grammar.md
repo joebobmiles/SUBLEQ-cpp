@@ -11,8 +11,7 @@ assembly language:
                 | <expression> "," <expression> <EOL>
                 | <expression> <EOL>
 
-<expression> ::= <label>? (<number> | "?")
-               | <identifier>
+<expression> ::= <label>? (<number> | "?" | <identifier>)
 
 <identifier> ::= [^ <EOL> <whitespace> "," ":"]+
 
