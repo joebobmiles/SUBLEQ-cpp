@@ -13,8 +13,6 @@ if not exist build\ (
 )
 
 pushd build\
-echo Building subleq.exe...
 clang-cl /Zi ..\src\subleq.cpp /o subleq.exe
-echo Building subleqc.exe...
 clang-cl /Zi ..\src\subleqc\subleqc.cpp /o subleqc.exe
 popd
