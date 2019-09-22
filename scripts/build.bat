@@ -12,7 +12,5 @@ if not exist build\ (
     md build\
 )
 
-pushd build\
-clang-cl /Zi ..\src\subleq.cpp /o subleq.exe
-clang-cl /Zi ..\src\subleqc\subleqc.cpp /o subleqc.exe
-popd
+clang-cl /Zi src\subleq.cpp /o build\subleq.exe
+clang-cl /Zi src\subleqc\subleqc.cpp /o build\subleqc.exe
