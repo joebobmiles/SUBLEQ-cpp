@@ -7,32 +7,39 @@
  * is to be interpreted by subleq.exe.
  *
  * TODO[joe]:
- * - Create a stream object for tokens. I think this will save us some memory
- *   during execution when it comes to parsing. (By removing an array of tokens
- *   whose used memory is _at least_ the number of tokens stored.)
  * - Add commandline argument parsing.
  */
 
 // C/C++ stdlib
+#include <iostream>
 #include <cstdio>
+#include <cstdlib>
 #include <cassert>
 #include <fstream>
 
 // Internal libs
 #include "util.cpp"
 #include "buffer.cpp"
+#include "stack.cpp"
 #include "token.cpp"
 #include "lexer.cpp"
+#include "hashmap.cpp"
 
 
 #define UsageString "Usage: subleqc <input file> <output file>\n"
 
 
-enum status {
-    STATUS_NORMAL,
-    STATUS_MISSING_ARGS,
-    STATUS_SYNTAX_ERROR,
-    STATUS_UNKNOWN
+enum exit_status {
+    NORMAL,
+    MISSING_ARGS,
+    SYNTAX_ERROR,
+    UNKNOWN
+};
+
+struct instruction {
+    int Parameters[3];
+    unsigned int ParameterCount;
+    unsigned int Location;
 };
 
 struct error {
@@ -51,10 +58,9 @@ error GenerateError(const char *Message, token *Token)
 
     char *TypeString = TokenTypeToString(Token->Type);
 
-    // MAGIC[joe] 256 is an arbitray value selected based
-    // on an estimation of how long an error message is
-    // expected to be. This has no other basis than some
-    // sloppy mental math.
+    // MAGIC[joe] 256 is an arbitray value selected based on an estimation of
+    // how long an error message is expected to be. This has no other basis
+    // than some sloppy mental math.
     Error.Message = new char[256];
 
     sprintf(Error.Message,
@@ -69,6 +75,7 @@ error GenerateError(const char *Message, token *Token)
 }
 
 
+
 int main(int argc, char** argv)
 {
     if (argc == 1)
@@ -77,7 +84,7 @@ int main(int argc, char** argv)
 
         printf(UsageString);
 
-        return STATUS_MISSING_ARGS;
+        return MISSING_ARGS;
     }
     else if (argc == 2)
     {
@@ -85,7 +92,7 @@ int main(int argc, char** argv)
 
         printf(UsageString);
 
-        return STATUS_MISSING_ARGS;
+        return MISSING_ARGS;
     }
 
     std::ifstream SourceFile (argv[1],
@@ -95,7 +102,7 @@ int main(int argc, char** argv)
     {
         Error("Failed to open input file \"%s\", exiting.\n", argv[1]);
 
-        return STATUS_UNKNOWN;
+        return UNKNOWN;
     }
 
     SourceFile.seekg(0, std::ios::end);
@@ -144,31 +151,250 @@ int main(int argc, char** argv)
 
     unsigned int CurrentAddress = 0;
 
-    struct instruction {
-        int Parameters[3];
-        unsigned int ParameterCount;
-        unsigned int Location;
-    };
-
     buffer<instruction> Instructions = { };
     instruction         CurrentInstruction = { };
 
-    enum parser_state {
-        PARSER_STATE_NONE,
-        PARSER_STATE_START,
-        PARSER_STATE_FIRST_PARAM,
-        PARSER_STATE_FIRST_COMMA, // TODO[joe] Get rid of commas, logic is simpler.
-        PARSER_STATE_SECOND_PARAM,
-        PARSER_STATE_SECOND_COMMA, // TODO[joe] Get rid of commas, logic is simpler.
-        PARSER_STATE_THIRD_PARAM,
-        PARSER_STATE_EOL,
-    };
-
-    parser_state ParserState = PARSER_STATE_START;
-
     buffer<error> Errors = { };
 
+    hashmap Labels = { };
 
+#define PARSER_STATES \
+    _(INVALID) \
+    _(START) \
+    _(LABEL) \
+    _(PARAM) \
+    _(COMMA) \
+
+    enum parser_state {
+#define _(S) PARSER_STATE_##S,
+        PARSER_STATES
+#undef _
+    } ParserState = PARSER_STATE_START;
+
+
+    for (token Token = NextToken(&Lexer);
+         Token.Type != NONE;
+         Token = NextToken(&Lexer))
+    {
+
+#define TokenIs(T) if (Token.Type == T)
+#define StateIs(S) if (ParserState == PARSER_STATE_##S)
+
+#define AddParameter(V) CurrentInstruction.Parameters[CurrentInstruction.ParameterCount++] = V
+#define TransitionTo(S) ParserState = PARSER_STATE_##S
+
+        // If the token we're reading is a NUMBER and the state we're at is...
+        TokenIs(NUMBER)
+        {
+            StateIs(START)
+            {
+                CurrentAddress++;
+                AddParameter(atoi(Token.Text));
+
+                TransitionTo(PARAM);
+            }
+            else StateIs(LABEL)
+            {
+                CurrentAddress++;
+                AddParameter(atoi(Token.Text));
+
+                TransitionTo(PARAM);
+            }
+            else StateIs(COMMA)
+            {
+                CurrentAddress++;
+                AddParameter(atoi(Token.Text));
+
+                TransitionTo(PARAM);
+            }
+            else
+            {
+                // TODO[joe] Error reporting...
+                Unreachable();
+            }
+        }
+        // If the token we're reading is a QMARK and the state we're at is...
+        else TokenIs(QMARK)
+        {
+            StateIs(START)
+            {
+                AddParameter(++CurrentAddress);
+
+                TransitionTo(PARAM);
+            }
+            else StateIs(LABEL)
+            {
+                AddParameter(++CurrentAddress);
+
+                TransitionTo(PARAM);
+            }
+            else StateIs(COMMA)
+            {
+                AddParameter(++CurrentAddress);
+
+                TransitionTo(PARAM);
+            }
+            else
+            {
+                // TODO[joe] Error reporting...
+                Unreachable();
+            }
+        }
+        // If the token we're reading is an IDENT and the state we're at is...
+        else TokenIs(IDENT)
+        {
+            StateIs(START)
+            {
+                status<unsigned int> Result = Get(&Labels, Token.Text);
+
+                if (Result.Status == ERROR)
+                {
+                    Error("Undeclared identifier: %s\n", Token.Text);
+                    // todo(jrm): Determine if all we need to do is report an
+                    // error, or add it to the error queue.
+                }
+                else
+                {
+                    unsigned int Address = Result.unpack();
+
+                    // todo(jrm): Fix AddParameter() macro so that it takes
+                    // CurrentAddress as a parameter. Right now it's effectively
+                    // a global variable, which makes it hard to understand why
+                    // we increment CurrentAddress _before_ performing
+                    // AddParameter(), despite it being _VERY_ important that
+                    // you do so.
+                    CurrentAddress++;
+                    AddParameter(Address);
+                }
+
+                TransitionTo(PARAM);
+            }
+            else StateIs(LABEL)
+            {
+                status<unsigned int> Result = Get(&Labels, Token.Text);
+
+                if (Result.Status == ERROR)
+                {
+                    Error("Undeclared identifier: %s\n", Token.Text);
+                    // todo(jrm): Determine if all we need to do is report an
+                    // error, or add it to the error queue.
+                }
+                else
+                {
+                    unsigned int Address = Result.unpack();
+
+                    // todo(jrm): Fix AddParameter() macro so that it takes
+                    // CurrentAddress as a parameter. Right now it's effectively
+                    // a global variable, which makes it hard to understand why
+                    // we increment CurrentAddress _before_ performing
+                    // AddParameter(), despite it being _VERY_ important that
+                    // you do so.
+                    CurrentAddress++;
+                    AddParameter(Address);
+                }
+
+                TransitionTo(PARAM);
+            }
+            else StateIs(COMMA)
+            {
+                status<unsigned int> Result = Get(&Labels, Token.Text);
+
+                if (Result.Status == ERROR)
+                {
+                    Error("Undeclared identifier \"%s\"\n", Token.Text);
+                    // todo(jrm): Determine if all we need to do is report an
+                    // error, or add it to the error queue.
+                }
+                else
+                {
+                    unsigned int Address = Result.unpack();
+
+                    // todo(jrm): Fix AddParameter() macro so that it takes
+                    // CurrentAddress as a parameter. Right now it's effectively
+                    // a global variable, which makes it hard to understand why
+                    // we increment CurrentAddress _before_ performing
+                    // AddParameter(), despite it being _VERY_ important that
+                    // you do so.
+                    CurrentAddress++;
+                    AddParameter(Address);
+                }
+
+                TransitionTo(PARAM);
+            }
+            else
+            {
+                // TODO[joe] Error reporting...
+                Unreachable();
+            }
+        }
+        // If the token we're reading is a LABEL and the state we're at is...
+        else TokenIs(LABEL)
+        {
+            StateIs(START)
+            {
+                Put(&Labels, Token.Text, CurrentAddress);
+
+                TransitionTo(LABEL);
+            }
+            else StateIs(COMMA)
+            {
+                Put(&Labels, Token.Text, CurrentAddress);
+
+                TransitionTo(LABEL);
+            }
+            else
+            {
+                // TODO[joe] Error reporting...
+                Unreachable();
+            }
+        }
+        // If the token we're reading is a COMMA and the state we're at is...
+        else TokenIs(COMMA)
+        {
+            StateIs(PARAM)
+            {
+                // NOTE[joe] Can we remove COMMA and instead use START?
+                TransitionTo(COMMA);
+            }
+            else
+            {
+                // TODO[joe] Error reporting...
+                Unreachable();
+            }
+        }
+        // If the token we're reading is an EOL and the state we're at is...
+        else TokenIs(EOL)
+        {
+            StateIs(PARAM)
+            {
+                // TODO[joe] Close out instruction and reset.
+                Append<instruction>(&Instructions, CurrentInstruction);
+                CurrentInstruction = { };
+
+                TransitionTo(START);
+            }
+            else
+            {
+                // TODO[joe] Error reporting...
+                Unreachable();
+            }
+        }
+        // If the token we're reading is an INVALID token, report that we found
+        // an error.
+        else TokenIs(INVALID)
+        {
+            // TODO[joe] Error reporting...
+            Unreachable();
+        }
+        // If we reach here, there is definitely a problem...
+        else
+        {
+            Unreachable();
+        }
+    }
+
+
+    /*
     for (token Token = NextToken(&Lexer);
          Token.Type != NONE;
          Token = NextToken(&Lexer))
@@ -302,7 +528,7 @@ int main(int argc, char** argv)
                     {
                         error Error = GenerateError("Unexpected %s when reading "
                                                     "instruction. Expected "
-                                                    "number or question mark.", 
+                                                    "number or question mark.",
                                                     &Token);
 
                         Append<error>(&Errors, Error);
@@ -342,7 +568,7 @@ int main(int argc, char** argv)
             } break;
         }
     }
-
+    */
 
     if (Errors.Length)
     {
@@ -354,6 +580,7 @@ int main(int argc, char** argv)
                    Errors[i].Message,
                    Lines[Errors[i].LineNumber]);
 
+            // TODO[joe] Replace this with something that is more C++ idiomatic.
             // This is an esoteric part of the printf() formatting language
             // that I stumbled across looking for a way to do string padding.
             // The details can be found here:
@@ -364,7 +591,7 @@ int main(int argc, char** argv)
                             " ");
         }
 
-        return STATUS_SYNTAX_ERROR;
+        return SYNTAX_ERROR;
     }
 
 
@@ -416,7 +643,7 @@ int main(int argc, char** argv)
     if (!BinaryFile)
     {
         printf("Error: Failed to open output file \"%s\", exiting.\n", argv[2]);
-        return STATUS_UNKNOWN;
+        return UNKNOWN;
     }
 
     BinaryFile.write((char *) Program.Data,
@@ -425,5 +652,5 @@ int main(int argc, char** argv)
     BinaryFile.close();
 
 
-    return STATUS_NORMAL;
+    return NORMAL;
 }

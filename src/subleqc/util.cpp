@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 
 
 /** Error reporting/logging */
@@ -21,12 +22,33 @@
 
 /** Assertions */
 #define Assert(EXPRESSION) \
-    ((EXPRESSION) ? 0 \
-                  : Severe("Assertion \"%s\" failed in %s, line %d", \
-                           #EXPRESSION, \
-                           __FILE__, \
-                           __LINE__))
+    if (!(EXPRESSION)) { \
+        Severe("Assertion \"%s\" failed in %s, line %d", \
+               #EXPRESSION, \
+               __FILE__, \
+               __LINE__); \
+        std::abort(); \
+    }
 
-#define Unreachable() Severe("Branched into unreachable case in %s, line %d", \
+#define Unreachable() Severe("Branched into unreachable case in %s, line %d\n", \
                              __FILE__, \
                              __LINE__)
+
+
+/** Status reporting */
+
+enum status_code {
+    OK,
+    ERROR
+};
+
+template <typename T>
+struct status {
+    status_code Status;
+    T           Value;
+
+    T unpack()
+    {
+        return this->Value;
+    }
+};

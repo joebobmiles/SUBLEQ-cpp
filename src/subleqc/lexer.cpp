@@ -1,5 +1,5 @@
 /**
- * @file tokenizer.cpp
+ * @file lexer.cpp
  * @author Joseph Miles <josephmiles2015@gmail.com>
  * @date 2019-09-01
  *
@@ -163,6 +163,30 @@ bool IsEOL(const char* Text, unsigned int TextLength)
            (Text[0] == '\n' || Text[0] == ';');
 }
 
+static
+bool IsIdentifier(const char* Text, unsigned int TextLength)
+{
+    for (unsigned int i = 0; i < TextLength; i++)
+    {
+        if (Text[i] == ',' ||
+            Text[i] == ':' ||
+            IsEOL(&Text[i], 1) ||
+            IsWhitespace(Text[i]))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static
+bool IsLabel(const char* Text, unsigned int TextLength)
+{
+    return IsIdentifier(Text, TextLength - 1) &&
+           Text[TextLength - 1] == ':';
+}
+
 /**
  * Checks if the given [Text] matches any of the known token types. If it does
  * not, the type is reported to be INVALID.
@@ -176,6 +200,8 @@ token_type CheckTokenType(const char *Text, unsigned int TextLength)
     else Match(QuestionMark, QMARK)
     else Match(Comma, COMMA)
     else Match(EOL, EOL)
+    else Match(Identifier, IDENT)
+    else Match(Label, LABEL)
     else
     {
         return INVALID;
@@ -205,7 +231,7 @@ token NextToken(lexer *Lexer)
 
         Push<char>(&Stack, Character);
         CurrentType = CheckTokenType(Stack.Data, Stack.Length);
-        
+
         char NextCharacter = PeekNextCursor(Lexer);
 
         Push<char>(&Stack, NextCharacter);
@@ -220,6 +246,13 @@ token NextToken(lexer *Lexer)
             std::copy(Stack.Data,
                       Stack.Data + Stack.Length,
                       Token.Text);
+
+            // note(jrm): This will cause segfault if the stack is too long!
+            // If the stack length is 32, then we will write to the 32'nd index,
+            // which will be out of bounds for the token text field.
+            // We don't have to worry about anything longer, since that segfault
+            // will happen during the copy executed above.
+            Token.Text[Stack.Length] = '\0';
 
             Token.Type = CurrentType;
             Token.LineNumber = Lexer->LineNumber;

@@ -77,6 +77,19 @@ T Peek(stack<T> *Stack)
 }
 
 template <typename T>
+static
+void Reverse(stack<T> *Stack)
+{
+    stack<T> Temp = { };
+
+    while (Stack->Length > 0)
+        Push<T>(&Temp, Pop(Stack));
+
+    Empty<T>(Stack);
+    *Stack = Temp;
+}
+
+template <typename T>
 static inline
 void Empty(stack<T> *Stack)
 {

@@ -10,8 +10,10 @@
 
 
 /* C Standard Libraries */
+#include <algorithm>
 
 /* Own Libraries */
+#include "util.cpp"
 
 
 /* Structs */
@@ -22,6 +24,8 @@ enum token_type {
     QMARK,
     COMMA,
     EOL,
+    IDENT,
+    LABEL,
     INVALID,
 };
 
@@ -40,39 +44,28 @@ static inline
 char *TokenTypeToString(token_type Type)
 {
     char* Return = new char[16];
+    std::fill(Return, Return + 16, '\0');
+
+#define CASE(T, S) case T: \
+                   { \
+                       std::string String(S); \
+                       std::copy(String.begin(), String.end(), Return); \
+                   } break;
 
     switch (Type)
     {
-        case NUMBER:
-        {
-            std::string String("number");
-            std::copy(String.begin(), String.end(), Return);
-        } break;
+        CASE(NUMBER, "number")
+        CASE(QMARK, "question mark")
+        CASE(COMMA, "comma")
+        CASE(EOL, "end of line")
+        CASE(IDENT, "identifier")
+        CASE(LABEL, "label")
+        CASE(INVALID, "invalid token")
 
-        case QMARK:
-        {
-            std::string String("question mark");
-            std::copy(String.begin(), String.end(), Return);
-        } break;
-
-        case COMMA:
-        {
-            std::string String("comma");
-            std::copy(String.begin(), String.end(), Return);
-        } break;
-
-        case EOL:
-        {
-            std::string String("end of line");
-            std::copy(String.begin(), String.end(), Return);
-        } break;
-
-        case INVALID:
         default:
         {
-            std::string String("invalid token");
-            std::copy(String.begin(), String.end(), Return);
-        } break;
+            Unreachable();
+        }
     }
 
     return Return;
