@@ -108,17 +108,19 @@ status<unsigned int> Get(hashmap *Map, const char *Key)
 {
     // todo(jrm): Replace with a hash-and-grab-or-search method instead of just
     // linearly searching the hash table like a hooligan.
-    for (unsigned int i = 0; i < MAX_PAGE_SIZE; i++)
-    {
+
+    unsigned int StartIndex = Hash(Key);
+
+    unsigned int i = StartIndex;
+    do {
+        if (i == MAX_PAGE_SIZE)
+            i = 0;
+
         const char *StoredKey = Map->Nodes[i].Key;
 
         if (StoredKey == NULL)
-        {
-            return (status<unsigned int>) {
-                .Status = ERROR,
-                .Value  = 0
-            };
-        }
+            continue;
+
         else if (std::strcmp(StoredKey, Key) == 0)
         {
             return (status<unsigned int>) {
@@ -126,10 +128,8 @@ status<unsigned int> Get(hashmap *Map, const char *Key)
                 .Value  = Map->Nodes[i].Value
             };
         }
-    }
+    } while (++i != StartIndex);
 
-    // NOTE[joe] This is bad form, as 0 is a valid value to be stored in the
-    // hash map.
     if (Map->NextPage != NULL)
         return Get(Map, Key);
 

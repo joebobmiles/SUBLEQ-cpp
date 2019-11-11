@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <fstream>
+#include <algorithm>
 
 // Internal libs
 #include "util.cpp"
@@ -332,13 +333,25 @@ int main(int argc, char** argv)
         {
             StateIs(START)
             {
-                Put(&Labels, Token.Text, CurrentAddress);
+                unsigned int LabelLength = std::strlen(Token.Text) - 1;
+
+                char *Label = new char[LabelLength];
+                std::fill(Label, Label+LabelLength, '\0');
+                std::copy(Token.Text, Token.Text+LabelLength, Label);
+
+                Put(&Labels, Label, CurrentAddress);
 
                 TransitionTo(LABEL);
             }
             else StateIs(COMMA)
             {
-                Put(&Labels, Token.Text, CurrentAddress);
+                unsigned int LabelLength = std::strlen(Token.Text) - 1;
+
+                char *Label = new char[LabelLength];
+                std::fill(Label, Label+LabelLength, '\0');
+                std::copy(Token.Text, Token.Text+LabelLength, Label);
+
+                Put(&Labels, Label, CurrentAddress);
 
                 TransitionTo(LABEL);
             }
