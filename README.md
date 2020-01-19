@@ -38,9 +38,26 @@ error identifying the problem and halt.
 You need the following to build this project:
  -  A C++ compiler.
 
-To run the build on a Windows machine, make sure you have Visual Studio
-devtools in your system path and run the build script found in the scripts
-folder.
+If you know what you're doing, that maybe all you need. For those who want to
+use the existing Windows tooling, you will need:
+
+ -  LLVM clang v9.0+
+ -  Microsoft Visual Studio 2017
+ -  PowerShell v3+ (if using PowerShell)
+
+## Building on Windows
+
+### With CMD
+
+Make sure that the Visual Studio devtools is in your system path (requires
+Visual Studio installed). You can use `shell.bat` in the scripts directory to
+do this. Then use `build.bat` from the project root to build `subleq` and
+`subleqc`.
+
+### With PowerShell
+
+Run `build.ps1` from the project root. You can use `scripts.ps1` to make the
+build script a global command, but it will only work in the project root.
 
 # References
 
