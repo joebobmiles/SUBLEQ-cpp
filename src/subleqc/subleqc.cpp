@@ -177,31 +177,16 @@ int main(int argc, char** argv)
          Token.Type != NONE;
          Token = NextToken(&Lexer))
     {
-
-#define TokenIs(T) if (Token.Type == T)
-#define StateIs(S) if (ParserState == PARSER_STATE_##S)
+#define TokenIs(T) (Token.Type == T)
+#define StateIs(S) (ParserState == PARSER_STATE_##S)
 
 #define AddParameter(V) CurrentInstruction.Parameters[CurrentInstruction.ParameterCount++] = V
 #define TransitionTo(S) ParserState = PARSER_STATE_##S
 
         // If the token we're reading is a NUMBER and the state we're at is...
-        TokenIs(NUMBER)
+        if (TokenIs(NUMBER))
         {
-            StateIs(START)
-            {
-                CurrentAddress++;
-                AddParameter(atoi(Token.Text));
-
-                TransitionTo(PARAM);
-            }
-            else StateIs(LABEL)
-            {
-                CurrentAddress++;
-                AddParameter(atoi(Token.Text));
-
-                TransitionTo(PARAM);
-            }
-            else StateIs(COMMA)
+            if (StateIs(START) || StateIs(LABEL) || StateIs(COMMA))
             {
                 CurrentAddress++;
                 AddParameter(atoi(Token.Text));
@@ -215,21 +200,9 @@ int main(int argc, char** argv)
             }
         }
         // If the token we're reading is a QMARK and the state we're at is...
-        else TokenIs(QMARK)
+        else if (TokenIs(QMARK))
         {
-            StateIs(START)
-            {
-                AddParameter(++CurrentAddress);
-
-                TransitionTo(PARAM);
-            }
-            else StateIs(LABEL)
-            {
-                AddParameter(++CurrentAddress);
-
-                TransitionTo(PARAM);
-            }
-            else StateIs(COMMA)
+            if (StateIs(START) || StateIs(LABEL) || StateIs(COMMA))
             {
                 AddParameter(++CurrentAddress);
 
@@ -242,9 +215,9 @@ int main(int argc, char** argv)
             }
         }
         // If the token we're reading is an IDENT and the state we're at is...
-        else TokenIs(IDENT)
+        else if (TokenIs(IDENT))
         {
-            StateIs(START)
+            if (StateIs(START) || StateIs(LABEL) || StateIs(COMMA))
             {
                 status<unsigned int> Result = Get(&Labels, Token.Text);
 
@@ -258,64 +231,6 @@ int main(int argc, char** argv)
                 {
                     unsigned int Address = Result.unpack();
 
-                    // todo(jrm): Fix AddParameter() macro so that it takes
-                    // CurrentAddress as a parameter. Right now it's effectively
-                    // a global variable, which makes it hard to understand why
-                    // we increment CurrentAddress _before_ performing
-                    // AddParameter(), despite it being _VERY_ important that
-                    // you do so.
-                    CurrentAddress++;
-                    AddParameter(Address);
-                }
-
-                TransitionTo(PARAM);
-            }
-            else StateIs(LABEL)
-            {
-                status<unsigned int> Result = Get(&Labels, Token.Text);
-
-                if (Result.Status == ERROR)
-                {
-                    Error("Undeclared identifier: %s\n", Token.Text);
-                    // todo(jrm): Determine if all we need to do is report an
-                    // error, or add it to the error queue.
-                }
-                else
-                {
-                    unsigned int Address = Result.unpack();
-
-                    // todo(jrm): Fix AddParameter() macro so that it takes
-                    // CurrentAddress as a parameter. Right now it's effectively
-                    // a global variable, which makes it hard to understand why
-                    // we increment CurrentAddress _before_ performing
-                    // AddParameter(), despite it being _VERY_ important that
-                    // you do so.
-                    CurrentAddress++;
-                    AddParameter(Address);
-                }
-
-                TransitionTo(PARAM);
-            }
-            else StateIs(COMMA)
-            {
-                status<unsigned int> Result = Get(&Labels, Token.Text);
-
-                if (Result.Status == ERROR)
-                {
-                    Error("Undeclared identifier \"%s\"\n", Token.Text);
-                    // todo(jrm): Determine if all we need to do is report an
-                    // error, or add it to the error queue.
-                }
-                else
-                {
-                    unsigned int Address = Result.unpack();
-
-                    // todo(jrm): Fix AddParameter() macro so that it takes
-                    // CurrentAddress as a parameter. Right now it's effectively
-                    // a global variable, which makes it hard to understand why
-                    // we increment CurrentAddress _before_ performing
-                    // AddParameter(), despite it being _VERY_ important that
-                    // you do so.
                     CurrentAddress++;
                     AddParameter(Address);
                 }
@@ -329,21 +244,9 @@ int main(int argc, char** argv)
             }
         }
         // If the token we're reading is a LABEL and the state we're at is...
-        else TokenIs(LABEL)
+        else if (TokenIs(LABEL))
         {
-            StateIs(START)
-            {
-                unsigned int LabelLength = std::strlen(Token.Text) - 1;
-
-                char *Label = new char[LabelLength];
-                std::fill(Label, Label+LabelLength, '\0');
-                std::copy(Token.Text, Token.Text+LabelLength, Label);
-
-                Put(&Labels, Label, CurrentAddress);
-
-                TransitionTo(LABEL);
-            }
-            else StateIs(COMMA)
+            if (StateIs(START) || StateIs(COMMA))
             {
                 unsigned int LabelLength = std::strlen(Token.Text) - 1;
 
@@ -362,9 +265,9 @@ int main(int argc, char** argv)
             }
         }
         // If the token we're reading is a COMMA and the state we're at is...
-        else TokenIs(COMMA)
+        else if (TokenIs(COMMA))
         {
-            StateIs(PARAM)
+            if (StateIs(PARAM))
             {
                 // NOTE[joe] Can we remove COMMA and instead use START?
                 TransitionTo(COMMA);
@@ -376,9 +279,9 @@ int main(int argc, char** argv)
             }
         }
         // If the token we're reading is an EOL and the state we're at is...
-        else TokenIs(EOL)
+        else if (TokenIs(EOL))
         {
-            StateIs(PARAM)
+            if (StateIs(PARAM))
             {
                 // TODO[joe] Close out instruction and reset.
                 Append<instruction>(&Instructions, CurrentInstruction);
@@ -394,7 +297,7 @@ int main(int argc, char** argv)
         }
         // If the token we're reading is an INVALID token, report that we found
         // an error.
-        else TokenIs(INVALID)
+        else if (TokenIs(INVALID))
         {
             // TODO[joe] Error reporting...
             Unreachable();
